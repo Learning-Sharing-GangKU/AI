@@ -26,6 +26,8 @@ jobs:
             pip install ".[all]" || true
             pip install pytest flake8 httpx fastapi uvicorn || true
           fi
+          pip install flake8 pytest httpx fastapi uvicorn
+
 
       # --- Lint ---
       - name: Lint (Flake8)
