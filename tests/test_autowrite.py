@@ -1,50 +1,39 @@
-import pytest
-from app.callout.autowrite.router import route_generate
+import sys
+import os
+import asyncio
+from datetime import datetime
+from dotenv import load_dotenv
 
-# 샘플 데이터
-sample_data = {
-    "room_id": 123,
-    "title": "보드게임 모임",
-    "keywords": ["보드게임", "초보 환영", "기숙사 근처"],
-    "category": "취미",
-    "location": "건국대 기숙사 근처 카페",
-    "date": "2025-09-20",
-    "max_participants": 6,
-    "max_chars": 500
-}
+# 현재 파일 기준으로 상위 폴더(AI)를 Python path에 추가
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
+# .env 파일 로드
+load_dotenv()
 
-@pytest.mark.parametrize("provider", ["mock"])
-def test_route_generate(provider):
-    prompt = "보드게임 모임 소개문 작성"
-    result = route_generate(
-        "mock",
-        prompt,
-        max_tokens=sample_data["max_chars"],
-    )
-    assert "[MOCKED RESPONSE]" in result
+from app.callout.autowrite.router import Router  # noqa: E402
 
 
-def test_local_intro():
-    prompt = """
-        당신은 모임 홍보 글을 작성하는 카피라이터입니다.
-        아래 정보를 참고하여 자연스럽고 따뜻한 톤으로 소개문을 작성하세요.
+async def main() -> None:
+    """사용자 입력 기반으로 모임 소개문을 생성."""
+    router = Router()
+    provider = router.get_provider()
 
-        모임 이름: 보드게임 모임
-        키워드: 보드게임, 초보 환영, 기숙사 근처
-        카테고리: 취미
-        장소: 건국대 기숙사 근처 카페
-        날짜: 2025-09-20
-        최대 인원: 6명
+    # ✅ 사용자가 모임 생성 시 입력하는 정보
+    meeting_info = {
+        "title": "보드게임 모임",
+        "category": "취미",
+        "location": "건국대 기숙사 근처 카페",
+        "max_participants": 6,
+        "date_time": datetime(2025, 9, 20, 18, 0).isoformat(),
+        "keywords": ["보드게임", "초보 환영", "친목"],
+    }
 
-        소개문:
-        """
+    # ✅ Provider로 데이터 전달 (프롬프트 구성은 Provider에서 처리)
+    intro = await provider.generate_intro(meeting_info)
 
-    result = route_generate("local", prompt, max_tokens=100)
+    print("=== 생성된 소개문 ===")
+    print(intro)
 
-    print("\n--- Local HuggingFace 한국어 모델 결과 ---\n")
-    print(result)
 
-    assert isinstance(result, str)
-    assert len(result) > 0
-
+if __name__ == "__main__":
+    asyncio.run(main())

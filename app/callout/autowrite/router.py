@@ -1,16 +1,13 @@
-from .providers import generate_intro as openai_generate
-from .mock_provider import generate_intro as mock_generate
-from .huggingface_provider import generate_intro as hf_generate
-from .local_provider import generate_intro as local_generate   # ✅ 추가
+from app.callout.autowrite.providers import Provider
 
 
-def route_generate(provider: str, prompt: str, max_tokens: int = 500) -> str:
-    if provider == "openai":
-        return openai_generate(prompt, max_tokens)
-    if provider == "mock":
-        return mock_generate(prompt, max_tokens)
-    if provider == "huggingface":
-        return hf_generate(prompt, max_tokens)
-    if provider == "local":       # ✅ 로컬 provider 분기
-        return local_generate(prompt, max_tokens)
-    raise ValueError(f"Unknown provider: {provider}")
+class Router:
+    """Provider 라우터 (현재 기본 OpenAI Provider만 등록)."""
+
+    def __init__(self) -> None:
+        self.providers = {"default": Provider}
+
+    def get_provider(self, name: str = "default") -> Provider:
+        if name not in self.providers:
+            raise ValueError(f"Unknown provider: {name}")
+        return self.providers[name]()
