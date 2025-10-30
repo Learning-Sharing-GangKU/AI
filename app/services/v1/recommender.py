@@ -36,7 +36,10 @@ class CategoryIndex:
     def __init__(self, vocab: Iterable[str]) -> None:
         vocab_list = [v.strip() for v in vocab if v and v.strip()]
         self.vocab: List[str] = vocab_list
-        self.index: Dict[str, int] = {cat: i for i, cat in enumerate(vocab_list)}
+        self.index: Dict[str, int] = {
+            cat: i for i, 
+            cat in enumerate(vocab_list)
+        }
         self.dim: int = len(vocab_list)
 
     def has(self, cat: str) -> bool:

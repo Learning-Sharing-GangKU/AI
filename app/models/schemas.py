@@ -76,18 +76,44 @@ class FilterCheckResponse(BaseModel):
 
 
 class AutoWriteRequest(BaseModel):
-    title: str = Field(..., min_length=1)
-    purpose: str = Field(..., min_length=1)
-    audience: str = Field(..., min_length=1)
-    keywords: List[str] = Field(default_factory=list)
-    tone: str = Field(default="친근하고 명확하게")
-
-    # 기존: conint(ge=50, le=600)
-    length: Annotated[int, Field(ge=50, le=600)] = 140
+    room_id: int = Field(..., description="모임 ID")
+    title: str = Field(..., min_length=1, description="모임 이름")
+    keywords: List[str] = Field(..., description="모임 키워드 리스트")
+    category: str = Field(..., description="모임 카테고리")
+    location: str = Field(..., description="모임 장소")
+    date_time: str = Field(
+        ...,
+        description="모임 일정 (ISO 8601, 예: 2025-09-20)"
+    )
+    max_participants: int = Field(..., ge=1, description="최대 참가 인원")
+    gender_neutral: bool = Field(
+        default=True,
+        description="성중립 표현 여부"
+    )
+    max_chars: int = Field(
+        default=500,
+        ge=500,
+        le=800,
+        description="생성 글자 수 제한"
+    )
 
 
 class AutoWriteResponse(BaseModel):
-    description: str
-    safety_flags: Optional[List[str]] = None
-    used_model: Optional[str] = None
-    prompt_version: Optional[str] = None
+    room_id: int = Field(..., description="모임 ID")
+    description: str = Field(..., description="생성된 모임 소개문")
+    actual_length: Optional[int] = Field(
+        default=None,
+        description="생성된 텍스트 실제 길이"
+    )
+    gender_neutral_applied: Optional[bool] = Field(
+        default=None,
+        description="성중립 표현 적용 여부"
+    )
+    used_model: Optional[str] = Field(
+        default=None,
+        description="사용된 모델 이름"
+    )
+    prompt_version: Optional[str] = Field(
+        default="intro_gen_v1",
+        description="사용된 프롬프트 버전"
+    )

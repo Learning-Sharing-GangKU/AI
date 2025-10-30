@@ -61,7 +61,7 @@ class AutoWrite:
     - keywords: list[str] -> 사용자가 자동소개를 원할 때 넘길 키워드들
     - category: str -> 카테고리를 중심으로 서술
     - location: str -> 어느 곳을 중심으로 모일 것인지
-    - data_time: str -> 언제 만날 지
+    - date_time: str -> 언제 만날 지
     - max_participants: int -> 모임의 정원
     - gender_neutral: Boolean - 성중립 표현 true로 고정
     - max_chars: int - 생성 글자 수 제한 (500자 ~ 800자)
@@ -71,7 +71,7 @@ class AutoWrite:
     keywords: list[str]
     category: str
     location: str
-    data_time: str
+    date_time: str
     max_participants: int
     gender_neutral: bool = True
     max_chars: int = 800

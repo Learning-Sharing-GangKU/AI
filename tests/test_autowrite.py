@@ -1,39 +1,40 @@
-import sys
+"""autowrite 엔드포인트 함수(generate_autowrite) 직접 테스트."""
+
 import os
-import asyncio
+import sys
+import pytest
 from datetime import datetime
 from dotenv import load_dotenv
 
-# 현재 파일 기준으로 상위 폴더(AI)를 Python path에 추가
+# 경로 설정 (AI 폴더 상위 기준)
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-# .env 파일 로드
+# 환경변수 로드
 load_dotenv()
 
-from app.callout.autowrite.router import Router  # noqa: E402
+from app.api.v1.endpoints.autowrite import generate_autowrite  # noqa: E402
+from app.models.schemas import AutoWriteRequest  # noqa: E402
 
 
-async def main() -> None:
-    """사용자 입력 기반으로 모임 소개문을 생성."""
-    router = Router()
-    provider = router.get_provider()
+@pytest.mark.asyncio
+async def test_generate_autowrite_direct() -> None:
+    req = AutoWriteRequest(
+        room_id=1,
+        title="보드게임 모임",
+        category="취미",
+        location="건국대 기숙사 근처 카페",
+        date_time=datetime(2025, 9, 20).isoformat(),
+        max_participants=6,
+        keywords=["보드게임", "초보 환영", "친목"],
+        gender_neutral=True,
+        max_chars=800,
+    )
 
-    # ✅ 사용자가 모임 생성 시 입력하는 정보
-    meeting_info = {
-        "title": "보드게임 모임",
-        "category": "취미",
-        "location": "건국대 기숙사 근처 카페",
-        "max_participants": 6,
-        "date_time": datetime(2025, 9, 20, 18, 0).isoformat(),
-        "keywords": ["보드게임", "초보 환영", "친목"],
-    }
-
-    # ✅ Provider로 데이터 전달 (프롬프트 구성은 Provider에서 처리)
-    intro = await provider.generate_intro(meeting_info)
+    response = await generate_autowrite(req)
 
     print("=== 생성된 소개문 ===")
-    print(intro)
+    print(response.description)
 
-
-if __name__ == "__main__":
-    asyncio.run(main())
+    assert response.room_id == 1
+    assert isinstance(response.description, str)
+    assert len(response.description) <= req.max_chars
