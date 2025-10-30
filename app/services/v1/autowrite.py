@@ -79,4 +79,3 @@ class AutoWriteService:
         ).format(title=dto.title)
 
         return "\n\n".join([intro, part1, part2, part3, part4, closing])
-        

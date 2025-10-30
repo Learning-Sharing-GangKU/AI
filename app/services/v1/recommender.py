@@ -37,7 +37,7 @@ class CategoryIndex:
         vocab_list = [v.strip() for v in vocab if v and v.strip()]
         self.vocab: List[str] = vocab_list
         self.index: Dict[str, int] = {
-            cat: i for i, 
+            cat: i for i,
             cat in enumerate(vocab_list)
         }
         self.dim: int = len(vocab_list)
