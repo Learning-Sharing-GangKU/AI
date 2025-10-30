@@ -69,6 +69,7 @@ class Recommender:
         now = now or datetime.now(timezone.utc)
 
         # 콜드스타트 판정: 선호가 비어 있으면 콜드스타트
+        # user_id가 존재하지 않을 떄, 콜드스타트
         if not user.preferred_categories:
             ranked = self._rank_coldstart(rooms, now)
             return self._paginate(ranked, limit, page), None, {

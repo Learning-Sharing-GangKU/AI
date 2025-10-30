@@ -22,7 +22,7 @@ class RoomRecommandUserMeta:
     '''
     user_id: int
     preferred_categories: list[str]
-    class_user: int
+    student_year: int
 
 
 @dataclass
@@ -43,9 +43,31 @@ class RoomRecommandRoomMeta:
     room_id: int
     category: str
     member_list: list[RoomRecommandUserMeta]
+
+    # 콜드스타트 경로에서만 사용
     capacity_member: int
     current_member: int
-    updated_at: Optional[datetime]   # 콜드스타트 경로에서만 사용
+    updated_at: Optional[datetime]
+
+
+@dataclass
+class TextFilter:
+    """
+    모임 소개문 자동생성의 최소 필드만 담는 내부용 DTO.
+    - DB/ORM 전체 모델과 1:1이 아닙니다(가벼움이 목적).
+    """
+    '''
+    - request_id: string (선택) — 클라이언트 생성 추적 ID
+    - user_id: long (선택) — 지속적인 금칙어, 비속어 사용시 제재를 위함.
+    - scenario: enum(string) [nickname | room_intro | review | free_text] (필수)
+    - text: string (필수) — 검사 대상 원문
+    - use_ml: boolean (default : false in MVP) — HF 모델 사용 여부
+    '''
+    request_id: str
+    user_id: str
+    scenario: str
+    text: str
+    gender_neutral: bool = True
 
 
 @dataclass
