@@ -34,7 +34,7 @@ class RecommendByCategoryRequest(BaseModel):
 
 class RecommendationItem(BaseModel):
     """서버 → 클라이언트: 개별 추천 항목."""
-    gathering_id: int
+    gatherings_id: List[int]
     # -> 그냥 id만 보내고 끝낼거임
 
     # host_id:
