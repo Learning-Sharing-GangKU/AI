@@ -8,6 +8,8 @@
 from fastapi import FastAPI
 from huggingface_hub import snapshot_download
 from app.filters.v1.curse_detection_model import LocalCurseModel
+from app.callout.filter.registry import init_xlmr_client, get_xlmr_client
+
 
 app = FastAPI(title="gangKU AI Server")
 
@@ -25,6 +27,7 @@ def startup_event():
     """
     global _CURSE_MODEL
 
+    # 1
     # 1. 모델 파일 캐시 다운로드 (없으면 받음, 있으면 캐시 활용)
     snapshot_download(repo_id="2tle/korean-curse-detection")
 
@@ -37,6 +40,17 @@ def startup_event():
         print("[Startup] Curse model warmed up successfully.")
     except Exception as e:
         print(f"[Startup] Curse model warmup failed: {e}")
+
+    # --------------------xlmr load--------------------
+    # 2) XLMR 클라이언트 준비(환경변수 필요: XLMR_BASE_URL, XLMR_PATH, (선택)XLMR_API_KEY)
+    try:
+        init_xlmr_client()    # 환경변수로 초기화 (레지스트리 싱글톤 세팅)
+        xlmr = get_xlmr_client()
+        _ = xlmr.predict("this is a normal sentence")  # 가벼운 워밍업 호출
+        print("[Startup] XLMR client warmed up.")
+    except Exception as e:
+        # 외부 모델 장애가 있어도 서버 부트는 계속할지 여부는 정책으로 결정
+        print(f"[Startup] XLMR init/warmup failed: {e}")
 
 
 @app.get("/health")

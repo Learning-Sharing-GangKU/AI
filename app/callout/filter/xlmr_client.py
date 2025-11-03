@@ -7,8 +7,8 @@
 from __future__ import annotations
 
 import os
-from typing import Dict, Any, Optional
-
+import numpy as np
+from typing import Dict, Any, Optional, List
 from ..http import HttpCaller
 
 
@@ -35,11 +35,12 @@ class XLMRClient:
         retries: int = 2,
         cb_cooldown_sec: int = 10,
         path: str = "/classify",
+        http: Optional[HttpCaller] = None
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.path = path if path.startswith("/") else f"/{path}"
-        self.http = HttpCaller(timeout=timeout, retries=retries, cb_cooldown_sec=cb_cooldown_sec)
+        self.http = http or HttpCaller(timeout=timeout, retries=retries, cb_cooldown_sec=cb_cooldown_sec)
 
     @classmethod
     def from_env(cls) -> "XLMRClient":
@@ -59,6 +60,7 @@ class XLMRClient:
         실패/서킷오픈 시 안전 폴백: {"score": 0.0, "label": 0}
         """
         if not text:
+            print("not text")
             return {"score": 0.0, "label": 0}
 
         url = f"{self.base_url}{self.path}"
@@ -66,47 +68,29 @@ class XLMRClient:
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
 
-        resp = self.http.post_json(url, payload={"text": text}, headers=headers)
+        resp = self.http.post_json(
+            url,
+            payload={"inputs": text},
+            headers=headers)
         # http.post_json을 사용해, 해당 url로부터 응답을 받음
         if resp is None:
             return {"score": 0.0, "label": 0}
 
-        data = resp.json()
-        score = self._extract_score(data)
-        label = 1 if score >= 0.5 else 0
-        return {"score": float(score), "label": label}
+        data = np.array(resp.json()).flatten().tolist()
+        print(data)
+        score = self._extract_toxic_entry(data)
+
+        return {"score": score['score'], "label": score['label']}
 
     @staticmethod
-    def _extract_score(data: Any) -> float:
+    def _extract_toxic_entry(data: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """
-        외부 제공자 응답 스키마 다양성을 방어적으로 처리합니다.
-        허용 예:
-        1) [{"label":"toxic","score":0.82},{"label":"non_toxic","score":0.18}]
-        2) [{"label":"LABEL_1","score":0.82},{"label":"LABEL_0","score":0.18}]
-        3) {"toxic": 0.82, "non_toxic": 0.18}
-        4) {"labels": [...위와 동일 배열...]}
-
-        매칭 실패 시 0.0 반환.
+        HuggingFace XLMR 결과 리스트 중 label이 'toxic'인 항목만 반환.
+        없으면 None을 반환.
         """
-        try:
-            if isinstance(data, dict) and "labels" in data:
-                data = data["labels"]
-
-            if isinstance(data, dict):
-                if "toxic" in data and isinstance(data["toxic"], (int, float)):
-                    return float(data["toxic"])
-                if "LABEL_1" in data and isinstance(data["LABEL_1"], (int, float)):
-                    return float(data["LABEL_1"])
-
-            if isinstance(data, list) and data and isinstance(data[0], dict):
-                best = None
-                for d in data:
-                    lab = str(d.get("label", "")).lower()
-                    sc = float(d.get("score", 0.0))
-                    if lab in ("toxic", "label_1", "1"):
-                        best = max(best, sc) if best is not None else sc
-                if best is not None:
-                    return float(best)
-        except Exception:
-            pass
-        return 0.0
+        if not isinstance(data, list):
+            return None
+        for entry in data:
+            if isinstance(entry, dict) and entry.get("label", "").lower() == "toxic":
+                return entry
+        return None

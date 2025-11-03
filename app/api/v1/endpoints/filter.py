@@ -5,6 +5,7 @@ filter 사용 시나리오
 - <Reviews.comment>                  사용자 리뷰 작성                    -> blacklist+xlmr-large-toxicity-classifier
 - <Gathering.description>            모임 소개문 생성 및 수정              -> blacklist+xlmr-large-toxicity-classifier
 '''
+
 # app/api/v1/endpoints/filter.py
 # 역할:
 #   - 텍스트 안전성 검사 엔드포인트를 제공합니다.
@@ -56,7 +57,7 @@ router = APIRouter()
 _PREPROCESSOR = TextPreprocessor(PreprocessConfig())
 _MATCHER = BlacklistMatcher(word_boundary=False, ignore_case=True, hot_reload=True)
 _CURSE = LocalCurseModel()
-_XLMR = None  # 나중에 실제 클라이언트로 교체
+_XLMR = get_xlmr_client()
 
 # --------------------------- 시나리오/정책 ---------------------------
 ScenarioT = Literal["nickname", "review", "gathering", "keyword", "title"]
@@ -132,6 +133,7 @@ def filter_check(req: FilterCheckRequest) -> FilterCheckResponse:
             # ml_score = float(out["score"])
             # 임시: 폴백 제거하고 XLMR 결과 사용
             print("hello")
+            out = _XLMR.predict(normalized_text)
         else:
             # XLMR fallback 정책
             out = _CURSE.predict(normalized_text)

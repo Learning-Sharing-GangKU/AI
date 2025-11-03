@@ -9,13 +9,14 @@ from typing import List
 from datetime import datetime, timezone
 from app.api.deps import get_recommender
 
-
+# 1. 외부 DTO
 from app.models.schemas import (
     RecommendByCategoryRequest,
     RecommendationItem,
     RecommendationResponse,
 )
 
+# 2. 내부 DTO
 from app.models.domain import (
     RoomRecommandUserMeta,
     RoomRecommandRoomMeta
