@@ -36,10 +36,7 @@ class CategoryIndex:
     def __init__(self, vocab: Iterable[str]) -> None:
         vocab_list = [v.strip() for v in vocab if v and v.strip()]
         self.vocab: List[str] = vocab_list
-        self.index: Dict[str, int] = {
-            cat: i for i,
-            cat in enumerate(vocab_list)
-        }
+        self.index: Dict[str, int] = {cat: i for i, cat in enumerate(vocab_list)}
         self.dim: int = len(vocab_list)
 
     def has(self, cat: str) -> bool:
@@ -72,6 +69,7 @@ class Recommender:
         now = now or datetime.now(timezone.utc)
 
         # 콜드스타트 판정: 선호가 비어 있으면 콜드스타트
+        # user_id가 존재하지 않을 떄, 콜드스타트
         if not user.preferred_categories:
             ranked = self._rank_coldstart(rooms, now)
             return self._paginate(ranked, limit, page), None, {
