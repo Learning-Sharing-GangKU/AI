@@ -1,3 +1,5 @@
 .env
 .DS_Store.env
 .DS_Store
+.flake8
+__pycache__
