@@ -5,7 +5,7 @@
 # 사용처: app/api/v1/endpoints/* (컨트롤러에서 직접 import)
 
 
-from typing import List, Optional, Dict, Annotated, Literal
+from typing import List, Optional, Dict, Literal
 from pydantic import BaseModel, Field
 
 
