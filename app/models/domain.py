@@ -68,6 +68,7 @@ class TextFilter:
     text: str
     gender_neutral: bool = True
 
+
 @dataclass
 class AutoWrite:
     """
