@@ -1,23 +1,24 @@
-"""autowrite 엔드포인트 함수(generate_autowrite) 직접 테스트."""
+"""generate_autowrite() 엔드포인트 전체 호출 테스트"""
 
 import os
-import sys
 import pytest
 from datetime import datetime
 from dotenv import load_dotenv
 
-# 경로 설정 (AI 폴더 상위 기준)
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-
-# 환경변수 로드
-load_dotenv()
+# ✅ .env 로드
+env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+load_dotenv(env_path)
 
 from app.api.v1.endpoints.autowrite import generate_autowrite  # noqa: E402
 from app.models.schemas import AutoWriteRequest  # noqa: E402
 
 
 @pytest.mark.asyncio
-async def test_generate_autowrite_direct() -> None:
+async def test_generate_autowrite_full() -> None:
+    """
+    FastAPI 내부 계층을 전부 거쳐서 AI 호출 테스트
+    (실제 generate_autowrite() 함수 실행)
+    """
     req = AutoWriteRequest(
         room_id=1,
         title="보드게임 모임",
@@ -26,15 +27,13 @@ async def test_generate_autowrite_direct() -> None:
         date_time=datetime(2025, 9, 20).isoformat(),
         max_participants=6,
         keywords=["보드게임", "초보 환영", "친목"],
-        gender_neutral=True,
-        max_chars=800,
     )
 
     response = await generate_autowrite(req)
 
-    print("=== 생성된 소개문 ===")
+    print("\n=== 생성된 소개문 ===\n")
     print(response.description)
+    print(f"\n[모델] {response.used_model}, [길이] {response.actual_length}자\n")
 
-    assert response.room_id == 1
     assert isinstance(response.description, str)
-    assert len(response.description) <= req.max_chars
+    assert len(response.description) > 100

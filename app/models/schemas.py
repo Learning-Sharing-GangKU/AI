@@ -97,6 +97,7 @@ class AutoWriteRequest(BaseModel):
         description="모임 일정 (ISO 8601, 예: 2025-09-20)"
     )
     max_participants: int = Field(..., ge=1, description="최대 참가 인원")
+    """
     gender_neutral: bool = Field(
         default=True,
         description="성중립 표현 여부"
@@ -107,6 +108,7 @@ class AutoWriteRequest(BaseModel):
         le=800,
         description="생성 글자 수 제한"
     )
+    """
 
 
 class AutoWriteResponse(BaseModel):

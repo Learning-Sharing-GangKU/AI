@@ -1,4 +1,7 @@
 from typing import List
+from app.models.schemas import AutoWriteRequest
+from app.models.domain import AutoWrite
+from datetime import datetime
 
 
 def normalize_ws(text: str) -> str:
@@ -19,3 +22,17 @@ def build_internal_keywords(title: str, keywords: List[str]) -> List[str]:
             seen.add(kw)
             deduped.append(kw)
     return deduped
+
+
+def mapping(req: AutoWriteRequest) -> AutoWrite:
+    return AutoWrite(
+        room_id=req.room_id,
+        title=req.title,
+        category=req.category,
+        location=req.location,
+        date_time=datetime.fromisoformat(req.date_time),
+        keywords=req.keywords,
+        max_participants=req.max_participants,
+        gender_neutral=True,
+        max_chars=800
+    )

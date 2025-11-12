@@ -94,5 +94,5 @@ class AutoWrite:
     location: str
     date_time: str
     max_participants: int
-    gender_neutral: bool = True
-    max_chars: int = 800
+    gender_neutral: bool
+    max_chars: int
