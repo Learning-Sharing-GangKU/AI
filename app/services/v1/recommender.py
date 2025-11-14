@@ -84,11 +84,11 @@ class Recommender:
 
         for rm in rooms:
             cat = getattr(rm.category, "value", rm.category)
-            cat_match = 0.8 if cat in prefs_set else 0.0
+            cat_match = 0.7 if cat in prefs_set else 0.0
 
         # 나이(학번) 근접도 0~1 → 0.2 가중
             age_diff = abs(rm.host_age - user.user_age)
-            age_term = max(0.0, 1 - (age_diff / 10.0)) * 0.2
+            age_term = max(0.0, 1 - (age_diff / 10.0)) * 0.3
             cat_match += age_term
 
             scored.append((rm, cat_match))

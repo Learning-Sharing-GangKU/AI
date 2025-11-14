@@ -8,6 +8,7 @@
 from fastapi import FastAPI
 from app.api.v1.router import api_v1_router
 from huggingface_hub import snapshot_download
+from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.logging import setup_logging, RequestResponseLoggerMiddleware
 
@@ -17,6 +18,14 @@ app.include_router(api_v1_router, prefix="/api/v1")
 
 setup_logging("INFO")
 app.add_middleware(RequestResponseLoggerMiddleware)
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.on_event("startup")
