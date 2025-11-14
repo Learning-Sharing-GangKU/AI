@@ -8,6 +8,8 @@ import os
 from typing import Optional
 from app.callout.filter.xlmr_client import XLMRClient
 from app.callout.http import HttpCaller
+from app.core.config import settings
+
 
 _XLMR_SINGLETON: Optional[XLMRClient] = None
 
@@ -17,9 +19,6 @@ def init_xlmr_client(
     base_url: Optional[str] = None,
     path: Optional[str] = None,
     api_key: Optional[str] = None,
-    timeout: float = 1.5,
-    retries: int = 2,
-    cb_cooldown_sec: int = 10,
 ) -> XLMRClient:
     """
     명시 초기화 진입점. 인자가 없으면 환경변수로 보충합니다.
@@ -27,21 +26,18 @@ def init_xlmr_client(
     """
     global _XLMR_SINGLETON
 
-    base_url = os.getenv("XLMR_BASE_URL")
-    path = os.getenv("XLMR_PATH", "/xlmr-large-toxicity-classifier")
-    api_key = os.getenv("XLMR_API_KEY")
+    base_url = settings.XLMR_BASE_URL
+    path = settings.XLMR_PATH
+    api_key = settings.XLMR_API_KEY
 
     if not base_url or not path:
         raise ValueError("XLMR_BASE_URL 또는 XLMR_PATH가 설정되지 않았습니다.")
 
-    http = HttpCaller(timeout=timeout, retries=retries, cb_cooldown_sec=cb_cooldown_sec)
+    http = HttpCaller()
     _XLMR_SINGLETON = XLMRClient(
         base_url=base_url,
         path=path,
         api_key=api_key,
-        timeout=timeout,
-        retries=retries,
-        cb_cooldown_sec=cb_cooldown_sec,
         http=http
     )
     return _XLMR_SINGLETON

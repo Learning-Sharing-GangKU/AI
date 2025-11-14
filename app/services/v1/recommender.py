@@ -15,13 +15,16 @@
 #   내부 로직 변경 시, app/services/v1/recommender.py 여기서만 작업할 것 recommendations 변경 X
 
 from __future__ import annotations
-from typing import List, Dict, Iterable, Optional, Tuple
+from typing import List, Dict, Iterable, Optional
 # from dataclasses import dataclass
 from datetime import datetime, timezone
+from app.core.config import settings
+
+from app.models.enums import Category
 
 from app.models.domain import (
-    RoomMeta,
-    UserProfile
+    RoomRecommandRoomMeta,
+    RoomRecommandUserMeta
 )
 # from app.processors.preprocessors import normalize_category
 # -> json data의 전처리를 preproessors에서 할 것 인지.
@@ -34,21 +37,17 @@ class CategoryIndex:
     - index: {'스터디':0, '운동':1, ...}
     서버 기동 시 1회 구성하여 Recommender에 주입하는 방식을 권장
     """
-    def __init__(self, vocab: Iterable[str]) -> None:
-        vocab_list = [v.strip() for v in vocab if v and v.strip()]
-        self.vocab: List[str] = vocab_list
+    def __init__(self) -> None:
+        vocab_list = [e.value for e in Category]
         self.index: Dict[str, int] = {cat: i for i, cat in enumerate(vocab_list)}
         self.dim: int = len(vocab_list)
-
-    def has(self, cat: str) -> bool:
-        return cat in self.index
 
 
 class Recommender:
     """
     외부(엔드포인트)는 rank(), _rank_coldstart()만 호출
     - 비콜드스타트: 카테고리 유사도(B안)만 사용
-    - 콜드스타트: popularity/recency 간단 조합(예시)
+    - 콜드스타트: popularity/recency 간단조합(예시)
     - 의존관계:
         * CategoryIndex: 카테고리 정수 인덱스/어휘집 관리
         * (선택) 전처리 유틸: 카테고리 문자열 표준화
@@ -60,54 +59,48 @@ class Recommender:
 
     def rank(
         self,
-        user: UserProfile,
-        rooms: List[RoomMeta],
-        limit: int = 20,
-        page: int = 1,
+        user: RoomRecommandUserMeta,
+        rooms: List[RoomRecommandRoomMeta],
+        limit: int = settings.RECOMMANDS_LIMIT,
         now: Optional[datetime] = None,
-    ) -> Tuple[List[Dict], Optional[int], Dict[str, str]]:
+    ) -> List[int]:
 
+        """_summary_
+
+        Returns:
+            List[int] -> gatherings_id return
+        """
         now = now or datetime.now(timezone.utc)
 
         # 콜드스타트 판정: 선호가 비어 있으면 콜드스타트
         # user_id가 존재하지 않을 떄, 콜드스타트
-        if not user.preferred_categories:
+        if getattr(user, "is_not_authenticated", False) or not getattr(user, "preferred_categories", None):
             ranked = self._rank_coldstart(rooms, now)
-            return self._paginate(ranked, limit, page), None, {
-                "strategy_version": "rec_v1",
-                "weights_profile": "cat_only (coldstart uses popularity+recency)",
-                "note": "coldstart path"
-            }
+            return ranked
 
         # 비콜드스타트: 카테고리 유사도(B안, 0/1)만 사용
         scored = []
-        prefs_set = set([p for p in user.preferred_categories if p])
+        prefs_set = {Category._cat_name(p) for p in user.preferred_categories if p}
+
         for rm in rooms:
-            cat_match = 1.0 if rm.category in prefs_set else 0.0  # B안: “확률 내적 + 스케일”과 동일 결과
+            cat = getattr(rm.category, "value", rm.category)
+            cat_match = 0.8 if cat in prefs_set else 0.0
+
+        # 나이(학번) 근접도 0~1 → 0.2 가중
+            age_diff = abs(rm.host_age - user.user_age)
+            age_term = max(0.0, 1 - (age_diff / 10.0)) * 0.2
+            cat_match += age_term
+
             scored.append((rm, cat_match))
 
         scored.sort(key=lambda x: (x[1], x[0].room_id), reverse=True)
 
-        items = [
-            {
-                "room_id": rm.room_id,
-                "title": rm.title,
-                "category": rm.category,
-                "score": float(score),
-                "region": rm.region,
-                "member_count": rm.member_count,
-            }
-            for rm, score in scored
-        ]
-        return self._paginate(items, limit, page), None, {
-            "strategy_version": "rec_v1",
-            "weights_profile": "cat_only",
-            "note": "non-coldstart path"
-        }
+        return [x[0].room_id for x in scored][:limit]
 
     # --- coldstart 전용(예시) ---
-    def _rank_coldstart(self, rooms: List[RoomMeta], now: datetime) -> List[Dict]:
+    def _rank_coldstart(self, rooms: List[RoomRecommandRoomMeta], now: datetime, limit: int = 20) -> List[int]:
         def recency_norm(updated_at: Optional[datetime]) -> float:
+            # 콜드스타트시 최신도 순
             if not updated_at:
                 return 0.0
             delta = (now - updated_at).total_seconds()
@@ -115,33 +108,15 @@ class Recommender:
             import math
             return max(0.0, min(1.0, math.exp(-delta / tau)))
 
-        def popularity_norm(member_count: int) -> float:
-            return max(0.0, min(1.0, member_count / 50.0))
+        def popularity_norm(current_member: int) -> float:
+            # 콜드스타트시 인기도 순
+            return max(0.0, min(1.0, current_member / 50.0))
 
         scored = []
         for rm in rooms:
-            s = 0.6 * popularity_norm(rm.member_count) + 0.4 * recency_norm(rm.updated_at)
+            s = 0.6 * popularity_norm(rm.current_member) + 0.4 * recency_norm(rm.updated_at)
             scored.append((rm, s))
 
         scored.sort(key=lambda x: (x[1], x[0].room_id), reverse=True)
-        return [
-            {
-                "room_id": rm.room_id,
-                "title": rm.title,
-                "category": rm.category,
-                "score": float(s),
-                "region": rm.region,
-                "member_count": rm.member_count,
-            }
-            for rm, s in scored
-        ]
 
-    # --- 공통 유틸 ---
-    def _paginate(self, items: List[Dict], limit: int, page: int) -> List[Dict]:
-        if limit <= 0:
-            limit = 20
-        if page <= 0:
-            page = 1
-        start = (page - 1) * limit
-        end = start + limit
-        return items[start:end]
+        return [rm.room_id for rm in scored][:limit]

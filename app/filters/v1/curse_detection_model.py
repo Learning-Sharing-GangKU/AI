@@ -1,4 +1,4 @@
-# app/filters/v1/curse_model.py
+# app/filters/v1/curse_detection_model.py
 # 역할:
 # - "2tle/korean-curse-detection" 모델을 로컬에서 로드하여,
 #   입력 텍스트가 "욕설일 확률"을 반환
@@ -9,20 +9,17 @@ from typing import List, Dict, Any
 # import os
 import torch
 from transformers import pipeline
+from app.core.config import settings  # <-- 설정 주입
 
 
-def _select_device() -> int:
+def _select_device_index() -> int:
     """
-    장치 선택:
-    - MPS(Apple Silicon)가 가능하면 device=0
-    - 아니면 CPU로 device=-1
+    장치 선택(Windows 친화):
+    - CUDA 가능 → device=0 (GPU)
+    - 아니면 → device=-1 (CPU)
     """
-    try:
-        if torch.backends.mps.is_available() and torch.backends.mps.is_built():
-            return 0  # pipeline에선 mps=0 인덱스로 취급
-    except Exception:
-        pass
-    return -1  # CPU
+    print(torch.cuda.is_available())
+    return 0 if torch.cuda.is_available() else -1
 
 
 class LocalCurseModel:
@@ -34,9 +31,9 @@ class LocalCurseModel:
         - pipeline(return_all_scores=True)로 로드 → LABEL_0/LABEL_1 확률 모두 획득
         - LABEL_1(또는 '1')을 '욕설 확률'로 간주하여 반환
     """
-    def __init__(self, model_id: str = "2tle/korean-curse-detection") -> None:
-        self.model_id = model_id
-        device = _select_device()
+    def __init__(self, model_id: str | None = None) -> None:
+        self.model_id = model_id or settings.CURSE_MODEL_ID
+        device = _select_device_index()
 
         # return_all_scores=True로 꼭 설정해야 두 라벨 모두의 확률을 얻을 수 있습니다.
         self.pipe = pipeline(
@@ -48,7 +45,7 @@ class LocalCurseModel:
             device=device
         )
 
-    def score(self, text: str) -> float:
+    def predict(self, text: str) -> float:
         """
         입력 텍스트 1건에 대해 '욕설일 확률'을 반환합니다.
         - 출력 예시(파이프라인 결과):
