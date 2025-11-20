@@ -1,3 +1,4 @@
+# app/services/v1/autowrite.py
 from datetime import datetime
 from app.callout.autowrite.router import Router
 from app.models.schemas import AutoWriteRequest, AutoWriteResponse
@@ -69,15 +70,13 @@ class AutoWriteService:
         - 요청(req)을 내부 도메인 객체로 변환 후 AI 호출 수행
         - 실패 시 fallback 템플릿 사용
         """
-        domain_input = mapping(req)
+
         router = Router()
         provider = router.get_provider()
         fallback_writer = FallbackWriter()
 
         try:
-            info_dict = vars(domain_input)
-
-            result = provider.generate_intro(info_dict)
+            result = provider.generate_intro(req)
 
             if inspect.isawaitable(result):
                 text = await result
@@ -90,7 +89,7 @@ class AutoWriteService:
                 text = str(result)
 
         except Exception:
-            text = fallback_writer.render_meeting_template(domain_input)
+            text = fallback_writer.render_meeting_template(req)
 
         cleaned = safe_strip(text)
         max_chars = getattr(req, "max_chars", 800)
@@ -99,8 +98,10 @@ class AutoWriteService:
         return AutoWriteResponse(
             room_id=req.room_id,
             description=limited,
+            filter_scenario="None",
+            filter_allowed=True,
             actual_length=len(limited),
-            gender_neutral_applied=domain_input.gender_neutral,
+            gender_neutral_applied=req.gender_neutral,
             used_model=getattr(provider, "model", "unknown"),
             prompt_version="intro_gen_v1",
         )
@@ -108,15 +109,14 @@ class AutoWriteService:
     async def stream_intro(self, req: AutoWriteRequest):
         """AI 스트리밍 모드"""
         print("[DEBUG] stream_intro() called")
-
-        domain_input = mapping(req)
+        info = vars(req)
+        
         router = Router()
         provider = router.get_provider()
 
-        info_dict = vars(domain_input)
         print("[DEBUG] provider.stream_intro() 시작")
 
-        gen = provider.stream_intro(info_dict)
+        gen = provider.stream_intro(info)
 
         print("[DEBUG] provider.stream_intro() type:", type(gen))
 

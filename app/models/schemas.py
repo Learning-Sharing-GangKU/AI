@@ -73,6 +73,9 @@ class FilterCheckResponse(BaseModel):
     # ok: bool
     # hits: List[str] = Field(default_factory=list)
     # normalized_text: Optional[str] = None
+    scenario: Literal["nickname", "keyword", "review", "gathering", "title"] = Field(
+        ..., description="사용 시나리오"
+    )
     allowed: bool
     # 아래는 내부 회의 후 확정
     score: float
@@ -109,6 +112,13 @@ class AutoWriteRequest(BaseModel):
 
 class AutoWriteResponse(BaseModel):
     room_id: int = Field(..., description="모임 ID")
+    filter_scenario: Literal["keyword", "title"] = Field(
+        ..., description="사용 시나리오"
+    )
+    filter_allowed: Optional[bool] = Field(
+        default=None,
+        description="비속어,금칙어 필터 통과"
+    )
     description: str = Field(..., description="생성된 모임 소개문")
     actual_length: Optional[int] = Field(
         default=None,
