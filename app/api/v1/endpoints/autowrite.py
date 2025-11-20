@@ -24,7 +24,7 @@ async def stream_autowrite(req: AutoWriteRequest, curse_model: LocalCurseModel =
     domain_input = mapping(req, curse_model)
     if isinstance(domain_input, AutoWriteResponse):
         return JSONResponse(status_code=200, content=domain_input.dict())
-    
+
     service = AutoWriteService()
 
     async def token_stream():

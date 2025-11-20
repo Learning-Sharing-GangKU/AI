@@ -33,7 +33,7 @@ def build_internal_keywords(title: str, keywords: List[str]) -> List[str]:
     return deduped
 
 
-def mapping(req: AutoWriteRequest, 
+def mapping(req: AutoWriteRequest,
             curse_model: LocalCurseModel,
             blacklist: BlacklistMatcher = BlacklistMatcher(),
             ) -> Union[AutoWrite, AutoWriteResponse]:
@@ -85,7 +85,7 @@ def mapping(req: AutoWriteRequest,
             used_model=None,
             prompt_version="intro_gen_v1"
         )
-    
+
     for kw, score in keyword_scores:
         if score >= threshold:
             return AutoWriteResponse(

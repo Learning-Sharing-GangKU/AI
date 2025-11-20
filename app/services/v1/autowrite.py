@@ -110,7 +110,7 @@ class AutoWriteService:
         """AI 스트리밍 모드"""
         print("[DEBUG] stream_intro() called")
         info = vars(req)
-        
+
         router = Router()
         provider = router.get_provider()
 
