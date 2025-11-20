@@ -35,7 +35,6 @@ filter 사용 시나리오
 
 from __future__ import annotations
 from typing import Dict, Literal, Optional
-
 from fastapi import APIRouter, HTTPException, Depends
 
 # 외부 DTO

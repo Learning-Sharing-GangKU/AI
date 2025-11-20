@@ -14,14 +14,22 @@ from app.core.logging import setup_logging, RequestResponseLoggerMiddleware
 
 
 app = FastAPI(title="gangKU AI Server")
-app.include_router(api_v1_router, prefix="/api/v1")
+app.include_router(api_v1_router, prefix="/api")
 
 setup_logging("INFO")
 app.add_middleware(RequestResponseLoggerMiddleware)
 
+if settings.ENV == "prod":
+    origins = [
+        "https://gangku.app",
+        "https://www.gangku.app",
+    ]
+else:  # dev or local
+    origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -17,7 +17,7 @@ class Provider:
             raise ValueError("❌ OPENAI_API_KEY is not set")
 
         # 모델 선택: 환경변수 → 인자 → 기본값
-        self.model = model or settings.CURSE_MODEL_ID
+        self.model = model or settings.OPENAI_MODEL
         self.client = AsyncOpenAI(api_key=api_key)
 
         print(f"[INIT] ✅ OpenAI Provider initialized with model: {self.model}")
@@ -28,7 +28,7 @@ class Provider:
     async def generate_intro(self, info: dict) -> str:
         """모임 정보를 기반으로 완성된 소개문을 한 번에 반환"""
         prompt = self._build_prompt(info)
-        max_chars = info.get("max_chars", 500)
+        max_chars = info.get("max_chars", 800)
         max_tokens = max(1, int(max_chars / 2))
 
         resp = await self.client.chat.completions.create(
