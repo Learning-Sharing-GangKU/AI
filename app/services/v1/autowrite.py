@@ -70,6 +70,7 @@ class AutoWriteService:
         - 실패 시 fallback 템플릿 사용
         """
         domain_input = mapping(req)
+
         router = Router()
         provider = router.get_provider()
         fallback_writer = FallbackWriter()

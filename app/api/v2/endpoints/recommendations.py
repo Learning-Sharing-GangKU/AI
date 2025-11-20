@@ -1,13 +1,15 @@
-# app/api/v1/endpoints/recommendations.py
+# app/api/v2/endpoints/recommendations.py
 # 역할:
 # - 추천 API HTTP 엔드포인트(컨트롤러).
 # - 요청 스키마 검증 후, 서비스(app/services/recommender.py)의 Recommender.rank() 호출.
-# - DB 연동 전 단계이므로, 예시용 RoomRepository 목을 사용합니다.
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, status
 from typing import List
 from datetime import datetime, timezone
 from app.api.v1.deps import get_recommender
+
+from app.models.schemas import RecommendByClusteringModelRequest, ClusterRefreshRequest
+from app.services.v2.recommender import ClusterTrainer
 
 # 1. 외부 DTO
 from app.models.schemas import (
@@ -27,7 +29,7 @@ from app.processors.recommand_preprocessing import (
 
 # 1) Recommender 서비스 인스턴스
 #    - 실제 환경에선 DI(의존성 주입)로 바꿀 수 있습니다.
-from app.services.v1.recommender import Recommender
+from app.services.v2.recommender import Recommender
 
 
 # -------------------------------------------------------
@@ -58,6 +60,11 @@ async def recommend(req: RecommendByCategoryRequest,
     """
     try:
         # 1) 입력 검증은 Pydantic에 의해 선처리됨. 추가 규칙이 있으면 여기서 검증 !!!!!!!!!!!!!!!
+        # 밑에 카테고리 갯수도 검증 예시임
+        if len(req.preferred_categories) > 3:
+            raise HTTPException(
+                status_code=400,
+                detail="preferred_categories는 최대 3개까지 허용됩니다.")
 
         # 2) req로 날라온 gatherings 목록들을 전처리 함수에 넣어 내부 DTO인 [RoomRecommandRoomMeta]로 변환
         rooms = to_room_meta_list(req.gatherings)

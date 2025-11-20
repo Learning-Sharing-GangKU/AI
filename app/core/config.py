@@ -45,6 +45,8 @@ class Settings(BaseSettings):
 
     # --- RECOMMANDATIONS ----
     RECOMMANDS_LIMIT: int | None = None
+    RECOMMENDER_N_CLUSTERS: int | None = None
+    RECOMMENDER_SVD_DIM: int | None = None
 
 
 settings = Settings()

@@ -25,6 +25,7 @@ class RoomRecommandUserMeta:
     user_id: Optional[int] = None
     preferred_categories: Tuple[str, ...] = field(default_factory=tuple)
     user_age: Optional[int] = None
+    user_join_count: Optional[int]
 
 
 @dataclass

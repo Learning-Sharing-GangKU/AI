@@ -1,8 +1,12 @@
 
-# app/services/v1/recommender.py
+# app/services/v2/recommender.py
 # 역할:
 # - 추천 점수 계산과 랭킹을 담당하는 서비스 레이어
-# - 본 뼈대는 "카테고리 유사도 B안(확률 내적 + 스케일)"을 적용합니다.
+# - 본 뼈대는 "clustering 모델"을 적용합니다.
+# fallback
+# 1. - model 하루에 한 번 다시 돌리는 경우 -> v1의 로직 사용
+# 2. - model 먹통 -> v1의 로직 사용
+# 3. - 비로그인 유저 -> 일반 콜드스타트
 # - 콜드스타트가 아닌 이상 시간/인기(popularity) 신호는 사용하지 않습니다.
 
 # 가정: 사용자 선호 카테고리는 최대 3개, 방의 카테고리는 정확히 1개입니다.
@@ -98,7 +102,7 @@ class Recommender:
         return [x[0].room_id for x in scored][:limit]
 
     # --- coldstart 전용(예시) ---
-    def _rank_coldstart(self, rooms: List[RoomRecommandRoomMeta], now: datetime, limit: int = settings.RECOMMANDS_LIMIT) -> List[int]:
+    def _rank_coldstart(self, rooms: List[RoomRecommandRoomMeta], now: datetime, limit: int = 20) -> List[int]:
         def recency_norm(updated_at: Optional[datetime]) -> float:
             # 콜드스타트시 최신도 순
             if not updated_at:
@@ -119,4 +123,4 @@ class Recommender:
 
         scored.sort(key=lambda x: (x[1], x[0].room_id), reverse=True)
 
-        return [x[0].room_id for x in scored][:limit]
+        return [rm.room_id for rm in scored][:limit]

@@ -14,7 +14,7 @@ from app.core.logging import setup_logging, RequestResponseLoggerMiddleware
 
 
 app = FastAPI(title="gangKU AI Server")
-app.include_router(api_v1_router, prefix="/api/v1")
+app.include_router(api_v1_router, prefix="/api")
 
 setup_logging("INFO")
 app.add_middleware(RequestResponseLoggerMiddleware)
