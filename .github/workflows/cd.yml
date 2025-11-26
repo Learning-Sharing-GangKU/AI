@@ -18,7 +18,6 @@ env:
   CODEDEPLOY_GROUP: ${{ secrets.CODEDEPLOY_GROUP }}
   SERVICE_PORT: ${{ secrets.SERVICE_PORT }}
   ECR_REPO_URI: ${{ secrets.AWS_ACCOUNT_ID}}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}
-  CONCURRENCY_GROUP: "cd-prod-ai"
 
 jobs:
   deploy:
@@ -29,7 +28,7 @@ jobs:
       }}
     runs-on: ubuntu-latest
     concurrency:
-      group: ${{ env.CONCURRENCY_GROUP }}
+      group: cd-prod-ai
       cancel-in-progress: false
 
     steps:
@@ -54,7 +53,7 @@ jobs:
       - name: Login to ECR
         run: |
           aws ecr get-login-password --region $AWS_REGION \
-            | docker login --username AWS --password-stdin ${{ env.ECR_REPO_URI%/* }}
+            | docker login --username AWS --password-stdin ${{ env.ECR_REPO_URI }}
 
       - name: Build image
         run: |
