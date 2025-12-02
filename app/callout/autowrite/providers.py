@@ -116,8 +116,8 @@ class Provider:
             f"모임 이름: {info['title']}\n"
             f"카테고리: {info['category']}\n"
             f"장소: {info['location']}\n"
-            f"날짜 및 시간: {info['date_time']}\n"
-            f"최대 인원: {info['max_participants']}명\n"
+            f"날짜 및 시간: {info['date']}\n"
+            f"최대 인원: {info['capacity']}명\n"
             f"키워드: {', '.join(info['keywords'])}\n"
             f"{gender_text}\n"
         )
