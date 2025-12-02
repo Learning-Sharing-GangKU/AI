@@ -50,6 +50,9 @@ class RequestResponseLoggerMiddleware(BaseHTTPMiddleware):
         self.sample_limit = sample_limit
 
     async def dispatch(self, request: Request, call_next):
+        if request.url.path.endswith("/stream"):
+            return await call_next(request)
+
         started = time.perf_counter()
         req_id = request.headers.get("x-request-id") or str(uuid.uuid4())
 

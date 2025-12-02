@@ -25,6 +25,7 @@ app = FastAPI(title="gangKU AI Server")
 app.include_router(api_v2_router, prefix="/api")
 
 
+
 def _init_logging(app: FastAPI) -> None:
     setup_logging("INFO")
     app.add_middleware(RequestResponseLoggerMiddleware)
