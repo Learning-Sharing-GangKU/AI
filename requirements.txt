@@ -30,6 +30,6 @@ safetensors==0.6.2         # 안전한 텐서 포맷
 nltk==3.9.1                # 텍스트 전처리/토큰화 등(필요 시)
 
 # --- clustering 사용 ===
-scikit_learn==1.7.2
+scikit-learn==1.7.2
 # --- (선택) 요청 편의: requests를 직접 사용할 경우에만 활성화 ---
 # requests==2.32.5

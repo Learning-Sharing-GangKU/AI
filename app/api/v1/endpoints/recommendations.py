@@ -17,7 +17,7 @@ from app.models.schemas import (
 
 # 2. 내부 DTO
 from app.models.domain import (
-    RoomRecommandUserMeta
+    RoomRecommandUserMetaV1
 )
 
 # 3. recommand 전처리 함수
@@ -63,7 +63,7 @@ async def recommend(req: RecommendByCategoryRequest,
         rooms = to_room_meta_list(req.gatherings)
 
         # 3) 추천 서비스 호출 (수정: user DTO로 넘김)
-        user = RoomRecommandUserMeta(
+        user = RoomRecommandUserMetaV1(
             user_id=req.user_id,
             preferred_categories=req.preferred_categories,
             user_age=req.user_age)
@@ -71,7 +71,7 @@ async def recommend(req: RecommendByCategoryRequest,
         items = recommender.rank(
             user=user,
             rooms=rooms,
-            now=datetime.now(timezone.utc),)
+            now=datetime.now(timezone.utc))
 
         # 4) DTO 변환: RecommendationItem 리스트로 변환
         # models/schemas 형식으로 변환한후 외부와 통신

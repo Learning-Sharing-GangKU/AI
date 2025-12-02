@@ -8,33 +8,38 @@ from typing import List
 from datetime import datetime, timezone
 from app.api.v1.deps import get_recommender
 
-from app.models.schemas import RecommendByClusteringModelRequest, ClusterRefreshRequest
-from app.services.v2.recommender import ClusterTrainer
+from app.api.v2.deps import get_recommender_v1, get_recommender_v2
+
+# 0. 전처리
+from app.processors.recommand_preprocessing import (
+    clustering_request_usermeta,
+    to_room_meta_list
+)
 
 # 1. 외부 DTO
 from app.models.schemas import (
-    RecommendByCategoryRequest,
+    RecommendByClusteringModelRequest,
     RecommendationResponse,
 )
 
 # 2. 내부 DTO
 from app.models.domain import (
-    RoomRecommandUserMeta
+    RoomRecommandUserMetaV1,
+    RoomRecommandRoomMetaV1,
+
+    RoomRecommandUserMetaV2
 )
 
-# 3. recommand 전처리 함수
-from app.processors.recommand_preprocessing import (
-    to_room_meta_list
-)
-
-# 1) Recommender 서비스 인스턴스
+# 3. Recommender 서비스 인스턴스
 #    - 실제 환경에선 DI(의존성 주입)로 바꿀 수 있습니다.
-from app.services.v2.recommender import Recommender
+from app.services.v2.recommender import Recommender as v2_recommender
+
+from app.services.v1.recommender import (
+    CategoryIndex,
+    Recommender as fallback_recommender
+)
 
 
-# -------------------------------------------------------
-# 엔드포인트: POST /recommendations
-# -------------------------------------------------------
 router = APIRouter(
     prefix="",
     tags=["recommendations"],
@@ -45,43 +50,40 @@ router = APIRouter(
     "/recommendations",
     response_model=RecommendationResponse,
     summary="사용자 선호 기반 방 추천")
-async def recommend(req: RecommendByCategoryRequest,
-                    recommender: Recommender = Depends(get_recommender),
-                    ) -> RecommendationResponse:
+async def recommend(
+    req: RecommendByClusteringModelRequest,
+    recommender_v2: v2_recommender = Depends(get_recommender_v2),
+    recommender_v1: fallback_recommender = Depends(get_recommender_v1),
+) -> RecommendationResponse:
     """
-    호출 시점:
-    - 클라이언트가 추천 목록을 요청할 때마다 실행됩니다.
-
-    처리 흐름:
-    1) 요청 스키마 검증(Pydantic 자동)
-    2) RecommendByCategoryRequest에서 방 목록 받음
-    3) Recommender.rank() 호출
-    4) 결과를 RecommendationResponse로 직렬화하여 반환
+    req로 들어온 RecommendByClusteringModelRequest (user_id + user cluster 지정해주기 위한 필드들이 존재.)
+    1. user_id가 없는 경우 -> v1에서 했던 것처럼 coldstart진행
+    2. user_id존재 -> gatherings_popularity에서 cluster당 인기 방 response
     """
     try:
-        # 1) 입력 검증은 Pydantic에 의해 선처리됨. 추가 규칙이 있으면 여기서 검증 !!!!!!!!!!!!!!!
-        # 밑에 카테고리 갯수도 검증 예시임
-        if len(req.preferred_categories) > 3:
-            raise HTTPException(
-                status_code=400,
-                detail="preferred_categories는 최대 3개까지 허용됩니다.")
+        UserMetaV2 = clustering_request_usermeta(req)
 
-        # 2) req로 날라온 gatherings 목록들을 전처리 함수에 넣어 내부 DTO인 [RoomRecommandRoomMeta]로 변환
-        rooms = to_room_meta_list(req.gatherings)
+        items = recommender_v2.rank(
+            user=UserMetaV2,
+            now=datetime.now(timezone.utc),
+        )
 
-        # 3) 추천 서비스 호출 (수정: user DTO로 넘김)
-        user = RoomRecommandUserMeta(
-            user_id=req.user_id,
-            preferred_categories=req.preferred_categories,
-            user_age=req.user_age)
+        # fallback 정책
+        if items is None:
+            user = RoomRecommandUserMetaV1(
+                user_id=req.user_id,
+                preferred_categories=req.preferred_categories,
+                user_age=req.user_age
+            )
 
-        items = recommender.rank(
-            user=user,
-            rooms=rooms,
-            now=datetime.now(timezone.utc),)
+            rooms = to_room_meta_list(req.gatherings)
 
-        # 4) DTO 변환: RecommendationItem 리스트로 변환
-        # models/schemas 형식으로 변환한후 외부와 통신
+            items = recommender_v1.rank(
+                user=user,
+                rooms=rooms,
+                now=datetime.now(timezone.utc)
+            )
+
         return RecommendationResponse(items=items)
 
     except HTTPException:

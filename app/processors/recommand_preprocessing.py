@@ -8,19 +8,19 @@
 # app/processors/recommend_preprocessing.py
 
 from typing import Iterable, List
-from app.models.schemas import GatheringIn
-from app.models.domain import RoomRecommandRoomMeta
+from app.models.schemas import GatheringIn, RecommendByClusteringModelRequest
+from app.models.domain import RoomRecommandRoomMetaV1, RoomRecommandUserMetaV2
 from app.models.enums import Category
 
 
-def to_room_meta_list(gatherings: Iterable[GatheringIn]) -> List[RoomRecommandRoomMeta]:
+def to_room_meta_list(gatherings: Iterable[GatheringIn]) -> List[RoomRecommandRoomMetaV1]:
     """
     엔드포인트에서 req.gatherings -> 서비스 내부 DTO로 변환
     """
-    out: List[RoomRecommandRoomMeta] = []
+    out: List[RoomRecommandRoomMetaV1] = []
     for g in gatherings:
         out.append(
-            RoomRecommandRoomMeta(
+            RoomRecommandRoomMetaV1(
                 room_id=g.room_id,  # OK
                 # Enum -> str 변환
                 category=(g.category.value if isinstance(g.category, Category) else g.category),
@@ -32,3 +32,13 @@ def to_room_meta_list(gatherings: Iterable[GatheringIn]) -> List[RoomRecommandRo
             )
         )
     return out
+
+
+def clustering_request_usermeta(req: RecommendByClusteringModelRequest) -> RoomRecommandUserMetaV2:
+    return RoomRecommandUserMetaV2(
+        user_id=req.user_id,
+        preferred_categories=req.preferred_categories,
+        user_age=req.user_age,
+        user_enroll=req.user_enroll,
+        user_join_count=req.user_join_count,
+    )

@@ -7,6 +7,7 @@
 
 from fastapi import FastAPI
 from app.api.v1.router import api_v1_router
+from app.api.v2.router import api_v2_router
 from huggingface_hub import snapshot_download
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
@@ -14,7 +15,7 @@ from app.core.logging import setup_logging, RequestResponseLoggerMiddleware
 
 
 app = FastAPI(title="gangKU AI Server")
-app.include_router(api_v1_router, prefix="/api")
+app.include_router(api_v2_router, prefix="/api")
 
 setup_logging("INFO")
 app.add_middleware(RequestResponseLoggerMiddleware)
@@ -84,14 +85,37 @@ def startup_event():
         # 외부 모델 장애가 있어도 서버 부트는 계속할지 여부는 정책으로 결정
         print(f"[Startup] XLMR init/warmup failed: {e}")
 
-        # --- Recommender (deps.get_recommender 가 요구) ---
+        # --- Recommender (deps.get_recommender 가 요구, v1, v2 둘 다 올리기) ---
     try:
-        from app.services.v1.recommender import Recommender, CategoryIndex
-        # 필요한 의존이 더 있으면 아래에서 채워 넣기
-        app.state.recommender = Recommender(cat_index=CategoryIndex())
-        print("[Startup] Recommender ready.")
+        # v1
+        from app.services.v1.recommender import Recommender as RecommenderV1, CategoryIndex
+        app.state.recommender_v1 = RecommenderV1(cat_index=CategoryIndex())
+        print("[Startup] Recommender v1 ready.")
+
+        # v2
+        from app.services.v2.recommender import Recommender as RecommenderV2
+        app.state.recommender_v2 = RecommenderV2(artifacts_dir=settings.CLUSTER_ARTIFACT_DIR)
+        print("[Startup] Recommender v2 ready.")
+
     except Exception as e:
         print(f"[Startup] Recommender init failed: {e}")
+
+    # --- Clustering / Popularity batch services ---
+    try:
+        from app.cluster.user_clustering import ClusteringTrainer
+        from app.cluster.gatherings_popularity import PopularityTrainer
+
+        # env / settings 에서 경로 받아서 주입
+        app.state.clustering_service = ClusteringTrainer(
+            artifacts_dir=settings.CLUSTER_ARTIFACT_DIR
+        )
+        app.state.popularity_service = PopularityTrainer(
+            artifacts_dir=settings.POPULARITY_ARTIFACT_DIR
+        )
+
+        print("[Startup] Clustering / Popularity services ready.")
+    except Exception as e:
+        print(f"[Startup] Clustering / Popularity services init failed: {e}")
 
 
 @app.get("/health")
