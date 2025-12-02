@@ -12,7 +12,7 @@ router = APIRouter(
 
 
 @router.post(
-    "/intro/stream",
+    "/intro",
     summary="AI 기반 모임 소개문 스트리밍 생성",
     response_class=PlainTextResponse,
 )

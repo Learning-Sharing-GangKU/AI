@@ -64,9 +64,9 @@ async def recommend(req: RecommendByCategoryRequest,
 
         # 3) 추천 서비스 호출 (수정: user DTO로 넘김)
         user = RoomRecommandUserMetaV1(
-            user_id=req.user_id,
-            preferred_categories=req.preferred_categories,
-            user_age=req.user_age)
+            user_id=req.userId,
+            preferred_categories=req.preferredCategories,
+            user_age=req.age)
 
         items = recommender.rank(
             user=user,

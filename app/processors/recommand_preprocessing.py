@@ -21,14 +21,14 @@ def to_room_meta_list(gatherings: Iterable[GatheringIn]) -> List[RoomRecommandRo
     for g in gatherings:
         out.append(
             RoomRecommandRoomMetaV1(
-                room_id=g.room_id,  # OK
+                room_id=g.gatheringId,  # OK
                 # Enum -> str 변환
                 category=(g.category.value if isinstance(g.category, Category) else g.category),
-                host_age=g.host_age,
+                host_age=g.hostAge,
                 # 도메인 필드명에 맞춰 매핑(★ 중요)
-                capacity_member=g.capacity_member,
-                current_member=g.current_member,
-                updated_at=g.updated_at,
+                capacity_member=g.capacity,
+                current_member=g.participantCount,
+                updated_at=g.createdAt,
             )
         )
     return out
@@ -36,9 +36,9 @@ def to_room_meta_list(gatherings: Iterable[GatheringIn]) -> List[RoomRecommandRo
 
 def clustering_request_usermeta(req: RecommendByClusteringModelRequest) -> RoomRecommandUserMetaV2:
     return RoomRecommandUserMetaV2(
-        user_id=req.user_id,
-        preferred_categories=req.preferred_categories,
-        user_age=req.user_age,
-        user_enroll=req.user_enroll,
+        user_id=req.userId,
+        preferred_categories=req.preferredCategories,
+        user_age=req.age,
+        user_enroll=req.enrollNumber,
         user_join_count=req.user_join_count,
     )

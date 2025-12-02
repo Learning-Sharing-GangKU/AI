@@ -5,7 +5,7 @@ from .endpoints import health, autowrite, recommendations, clustering, filter as
 
 api_v2_router = APIRouter()
 # http://127.0.0.1:8000/api/ai/v2/health
-# http://127.0.0.1:8000/api/ai/v2/gatherings/intro/stream
+# http://127.0.0.1:8000/api/ai/v2/gatherings/intro
 # http://127.0.0.1:8000/api/ai/v2/recommendations
 # http://127.0.0.1:8000/api/ai/v2/text/filter
 # http://127.0.0.1:8000/api/ai/v2/refresh/clustering

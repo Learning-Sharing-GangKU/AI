@@ -37,10 +37,10 @@ def _make_user(
     RecommendByClusteringModelRequest(...) 에 함께 넘겨주시면 됩니다.
     """
     return RecommendByClusteringModelRequest(
-        user_age=user_age,
-        user_enroll=user_enroll,
+        age=user_age,
+        enrollNumber=user_enroll,
         user_join_count=user_join_count,
-        preferred_categories=preferred_categories,
+        preferredCategories=preferred_categories,
     )
 
 

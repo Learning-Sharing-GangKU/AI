@@ -66,8 +66,8 @@ async def recommend(
         # 0. 요청 바디 로그
         logger.info(
             "POST /recommendations 요청 수신 user_id=%s preferred_categories=%s num_gatherings=%s",
-            req.user_id,
-            req.preferred_categories,
+            req.userId,
+            req.preferredCategories,
             len(req.gatherings) if req.gatherings else 0,
         )
 
@@ -85,9 +85,9 @@ async def recommend(
             logger.info("V2에서 추천 결과가 없어 V1 fallback 경로로 진입합니다.")
 
             user = RoomRecommandUserMetaV1(
-                user_id=req.user_id,
-                preferred_categories=req.preferred_categories,
-                user_age=req.user_age
+                user_id=req.userId,
+                preferred_categories=req.preferredCategories,
+                user_age=req.age
             )
 
             rooms = to_room_meta_list(req.gatherings)
