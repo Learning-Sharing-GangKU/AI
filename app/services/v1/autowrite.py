@@ -88,10 +88,10 @@ class AutoWriteService:
                 text = str(result)
 
         except Exception:
-            text = fallback_writer.render_meeting_template(result)
+            text = fallback_writer.render_meeting_template(req)
 
         cleaned = safe_strip(text)
-        max_chars = getattr(text, "max_chars", 800)
+        max_chars = getattr(req, "max_chars", 800)
         limited = clamp_length(cleaned, max_chars=max_chars)
 
         return AutoWriteResponse(
