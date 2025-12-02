@@ -1,10 +1,9 @@
 # app/services/v1/autowrite.py
 from datetime import datetime
 from app.callout.autowrite.router import Router
-from app.models.schemas import AutoWriteRequest, AutoWriteResponse
+from app.models.schemas import AutoWriteResponse
 from app.models.domain import AutoWrite
 from app.processors.autowrite_postprocessing import safe_strip, clamp_length
-from app.processors.autowrite_preprocessing import mapping
 from types import AsyncGeneratorType
 from dotenv import load_dotenv
 import os
@@ -18,10 +17,10 @@ class FallbackWriter:
     """AI 호출 실패 시 기본 안내문 생성"""
 
     def render_meeting_template(self, dto: AutoWrite) -> str:
-        if isinstance(dto.date_time, datetime):
-            date = dto.date_time.strftime("%Y년 %m월 %d일이고,")
-        elif isinstance(dto.date_time, str):
-            date = datetime.fromisoformat(dto.date_time).strftime("%Y년 %m월 %d일이고,")
+        if isinstance(dto.date, datetime):
+            date = dto.date.strftime("%Y년 %m월 %d일이고,")
+        elif isinstance(dto.date, str):
+            date = datetime.fromisoformat(dto.date).strftime("%Y년 %m월 %d일이고,")
         else:
             date = "미정"
 
@@ -33,7 +32,7 @@ class FallbackWriter:
             "바쁜 일정 속에서도 잠시 시간을 내어 함께한다면, 분명 새로운 에너지와 즐거움을 얻으실 수 있을 거예요. ✨"
         )
 
-        part2 = f"정원은 {dto.max_participants}명으로 제한되어 있습니다! 😊 "
+        part2 = f"정원은 {dto.capacity}명으로 제한되어 있습니다! 😊 "
         if dto.gender_neutral:
             part2 += "성별이나 배경에 상관없이 누구나 환영하고 있으니, 부담 없이 오시면 됩니다."
 
@@ -48,7 +47,7 @@ class FallbackWriter:
             "이번 기회를 놓치면 또 언제 이런 자리를 만나게 될까요? 🕒 "
             "우리 삶은 늘 바쁘고 해야 할 일들은 끝이 없지만, 그 속에서도 잠시 멈춰서 "
             "새로운 사람들과 연결되는 경험은 오래도록 남습니다. "
-            f"정원 {dto.max_participants}명이라 금방 마감될 수 있으니, 지금 바로 신청하시는 걸 추천드려요! 🚀"
+            f"정원 {dto.capacity}명이라 금방 마감될 수 있으니, 지금 바로 신청하시는 걸 추천드려요! 🚀"
         )
 
         closing = (
@@ -64,19 +63,19 @@ class FallbackWriter:
 class AutoWriteService:
     """AI 호출 및 실패 시 Fallback 템플릿 반환."""
 
-    async def generate_intro(self, req: AutoWriteRequest) -> AutoWriteResponse:
+    async def generate_intro(self, req: AutoWrite) -> AutoWriteResponse:
         """
         모임 소개문 자동 생성.
         - 요청(req)을 내부 도메인 객체로 변환 후 AI 호출 수행
         - 실패 시 fallback 템플릿 사용
         """
-
+        info = vars(req)
         router = Router()
         provider = router.get_provider()
         fallback_writer = FallbackWriter()
 
         try:
-            result = provider.generate_intro(req)
+            result = provider.generate_intro(info)
 
             if inspect.isawaitable(result):
                 text = await result
@@ -96,17 +95,11 @@ class AutoWriteService:
         limited = clamp_length(cleaned, max_chars=max_chars)
 
         return AutoWriteResponse(
-            room_id=req.room_id,
-            description=limited,
-            filter_scenario="None",
-            filter_allowed=True,
-            actual_length=len(limited),
-            gender_neutral_applied=req.gender_neutral,
-            used_model=getattr(provider, "model", "unknown"),
-            prompt_version="intro_gen_v1",
+            intro=limited,
+            aiversion="v1"
         )
 
-    async def stream_intro(self, req: AutoWriteRequest):
+    async def stream_intro(self, req: AutoWrite):
         """AI 스트리밍 모드"""
         print("[DEBUG] stream_intro() called")
         info = vars(req)

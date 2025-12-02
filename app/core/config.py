@@ -4,6 +4,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 from typing import List
 
+from pathlib import Path
+
 
 class Settings(BaseSettings):
     # --- 앱 기본 ---
@@ -45,6 +47,12 @@ class Settings(BaseSettings):
 
     # --- RECOMMANDATIONS ----
     RECOMMANDS_LIMIT: int | None = None
+    RECOMMENDER_N_CLUSTERS: int | None = None
+    RECOMMENDER_SVD_DIM: int | None = None
+
+    # 아티팩트 dir
+    CLUSTER_ARTIFACT_DIR: Path = Path("app/cluster/artifacts/user_clustering")
+    POPULARITY_ARTIFACT_DIR: Path = Path("app/cluster/artifacts/popularity")
 
 
 settings = Settings()

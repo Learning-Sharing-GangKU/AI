@@ -23,8 +23,8 @@ from app.core.config import settings
 from app.models.enums import Category
 
 from app.models.domain import (
-    RoomRecommandRoomMeta,
-    RoomRecommandUserMeta
+    RoomRecommandRoomMetaV1,
+    RoomRecommandUserMetaV1
 )
 # from app.processors.preprocessors import normalize_category
 # -> json data의 전처리를 preproessors에서 할 것 인지.
@@ -59,8 +59,8 @@ class Recommender:
 
     def rank(
         self,
-        user: RoomRecommandUserMeta,
-        rooms: List[RoomRecommandRoomMeta],
+        user: RoomRecommandUserMetaV1,
+        rooms: List[RoomRecommandRoomMetaV1],
         limit: int = settings.RECOMMANDS_LIMIT,
         now: Optional[datetime] = None,
     ) -> List[int]:
@@ -98,7 +98,7 @@ class Recommender:
         return [x[0].room_id for x in scored][:limit]
 
     # --- coldstart 전용(예시) ---
-    def _rank_coldstart(self, rooms: List[RoomRecommandRoomMeta], now: datetime, limit: int = 20) -> List[int]:
+    def _rank_coldstart(self, rooms: List[RoomRecommandRoomMetaV1], now: datetime, limit: int = settings.RECOMMANDS_LIMIT) -> List[int]:
         def recency_norm(updated_at: Optional[datetime]) -> float:
             # 콜드스타트시 최신도 순
             if not updated_at:
@@ -119,4 +119,4 @@ class Recommender:
 
         scored.sort(key=lambda x: (x[1], x[0].room_id), reverse=True)
 
-        return [rm.room_id for rm in scored][:limit]
+        return [x[0].room_id for x in scored][:limit]

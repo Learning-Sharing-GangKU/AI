@@ -1,14 +1,12 @@
-# app/processors/preprocessing.py
+# app/processors/autowrite_preprocessing.py
 from typing import List, Union
 from datetime import datetime
 
+from fastapi import APIRouter, HTTPException, Depends
+
 from app.models.schemas import AutoWriteRequest
 from app.models.domain import AutoWrite
-
-from fastapi import APIRouter, HTTPException, Depends
-from app.api.v1.deps import get_curse_model_dep, get_xlmr_client_dep
 from app.filters.v1.curse_detection_model import LocalCurseModel
-from app.models.schemas import AutoWriteResponse
 from app.filters.v1.blocklistV0 import BlacklistMatcher
 
 
@@ -17,6 +15,7 @@ def normalize_ws(text: str) -> str:
     return " ".join(text.split()) if text is not None else ""
 
 
+# 내부 키워드 생성
 def build_internal_keywords(title: str, keywords: List[str]) -> List[str]:
     base = [kw.strip() for kw in keywords if kw and kw.strip()]
     title_tokens = [t for t in title.split() if len(t) > 1]
@@ -33,80 +32,58 @@ def build_internal_keywords(title: str, keywords: List[str]) -> List[str]:
     return deduped
 
 
-def mapping(req: AutoWriteRequest,
-            curse_model: LocalCurseModel,
-            blacklist: BlacklistMatcher = BlacklistMatcher(),
-            ) -> Union[AutoWrite, AutoWriteResponse]:
+# 메인 매핑 함수
+def mapping(
+    req: AutoWriteRequest,
+    curse_model: LocalCurseModel,
+    blacklist: BlacklistMatcher = BlacklistMatcher(),
+) -> Union[AutoWrite, str]:
 
+    # 1) 정규화
     title_norm = normalize_ws(req.title)
     keyword_norms = [normalize_ws(k) for k in req.keywords]
 
+    # ----------------------------------------------------------------------
+    # 2) 블랙리스트(사전 기반) 탐지 - 제목
+    # ----------------------------------------------------------------------
     bl_title_hits = blacklist.scan(title_norm)
     if bl_title_hits:
-        first = bl_title_hits[0]
-        return AutoWriteResponse(
-            room_id=req.room_id,
-            filter_scenario="title",
-            filter_allowed=False,
-            description=f"제목에 금칙어 '{first['match']}'(카테고리: {first['category']})가 포함되어 있습니다.",
-            actual_length=0,
-            gender_neutral_applied=None,
-            used_model="blacklist_v1",
-            prompt_version="intro_gen_v1",
-        )
+        return "title"
 
-    for kw in keyword_norms:
-        bl_kw_hits = blacklist.scan(kw)
+    # ----------------------------------------------------------------------
+    # 3) 블랙리스트(사전 기반) 탐지 - 키워드
+    # ----------------------------------------------------------------------
+    for kw_norm in keyword_norms:
+        bl_kw_hits = blacklist.scan(kw_norm)
         if bl_kw_hits:
-            first = bl_kw_hits[0]
-            return AutoWriteResponse(
-                room_id=req.room_id,
-                filter_scenario="keyword",
-                filter_allowed=False,
-                description=f"키워드 '{first['match']}'(카테고리: {first['category']})가 금칙어 목록에 포함되어 있습니다.",
-                actual_length=0,
-                gender_neutral_applied=None,
-                used_model="blacklist_v1",
-                prompt_version="intro_gen_v1",
-            )
+            return "keyword"
 
-    title_score = curse_model.predict(req.title)
-    keyword_scores = [(kw, curse_model.predict(kw)) for kw in req.keywords]
+    # ----------------------------------------------------------------------
+    # 4) ML 기반 독성 모델 탐지
+    # ----------------------------------------------------------------------
     threshold = 0.40
 
+    # 제목 점수
+    title_score = curse_model.predict(req.title)
     if title_score >= threshold:
-        return AutoWriteResponse(
-            room_id=req.room_id,
-            filter_scenario="title",
-            filter_allowed=False,
-            description="제목에서 부적절한 표현이 탐지되었습니다.",
-            actual_length=0,
-            gender_neutral_applied=None,
-            used_model=None,
-            prompt_version="intro_gen_v1"
-        )
+        return "title"
 
-    for kw, score in keyword_scores:
-        if score >= threshold:
-            return AutoWriteResponse(
-                room_id=req.room_id,
-                filter_scenario="keyword",
-                filter_allowed=False,
-                description=f"키워드 '{kw}'에서 부적절한 표현이 탐지되었습니다.",
-                actual_length=0,
-                gender_neutral_applied=None,
-                used_model=None,
-                prompt_version="intro_gen_v1"
-            )
+    # 키워드 점수
+    for kw in req.keywords:
+        kw_score = curse_model.predict(kw)
+        if kw_score >= threshold:
+            return "keyword"
 
+    # ----------------------------------------------------------------------
+    # 5) 모든 필터 통과 → AutoWrite domain 모델로 매핑
+    # ----------------------------------------------------------------------
     return AutoWrite(
-        room_id=req.room_id,
         title=req.title,
         category=req.category,
         location=req.location,
-        date_time=datetime.fromisoformat(req.date_time),
+        date=datetime.fromisoformat(req.date),
         keywords=req.keywords,
-        max_participants=req.max_participants,
+        capacity=req.capacity,
         gender_neutral=True,
         max_chars=800
     )

@@ -17,7 +17,7 @@ from app.models.schemas import (
 
 # 2. 내부 DTO
 from app.models.domain import (
-    RoomRecommandUserMeta
+    RoomRecommandUserMetaV1
 )
 
 # 3. recommand 전처리 함수
@@ -58,25 +58,20 @@ async def recommend(req: RecommendByCategoryRequest,
     """
     try:
         # 1) 입력 검증은 Pydantic에 의해 선처리됨. 추가 규칙이 있으면 여기서 검증 !!!!!!!!!!!!!!!
-        # 밑에 카테고리 갯수도 검증 예시임
-        if len(req.preferred_categories) > 3:
-            raise HTTPException(
-                status_code=400,
-                detail="preferred_categories는 최대 3개까지 허용됩니다.")
 
         # 2) req로 날라온 gatherings 목록들을 전처리 함수에 넣어 내부 DTO인 [RoomRecommandRoomMeta]로 변환
         rooms = to_room_meta_list(req.gatherings)
 
         # 3) 추천 서비스 호출 (수정: user DTO로 넘김)
-        user = RoomRecommandUserMeta(
-            user_id=req.user_id,
-            preferred_categories=req.preferred_categories,
-            user_age=req.user_age)
+        user = RoomRecommandUserMetaV1(
+            user_id=req.userId,
+            preferred_categories=req.preferredCategories,
+            user_age=req.age)
 
         items = recommender.rank(
             user=user,
             rooms=rooms,
-            now=datetime.now(timezone.utc),)
+            now=datetime.now(timezone.utc))
 
         # 4) DTO 변환: RecommendationItem 리스트로 변환
         # models/schemas 형식으로 변환한후 외부와 통신

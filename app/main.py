@@ -6,105 +6,144 @@
 # - 워밍업: 간단한 텍스트로 모델을 1회 호출하여 로딩 지연을 앱 시작 시 해결
 
 from fastapi import FastAPI
-from app.api.v1.router import api_v1_router
+# from app.api.v1.router import api_v1_router
+from app.api.v2.router import api_v2_router
 from huggingface_hub import snapshot_download
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.logging import setup_logging, RequestResponseLoggerMiddleware
 
+# 서비스/클라이언트
+from app.filters.v1.curse_detection_model import LocalCurseModel
+from app.callout.filter.registry import init_xlmr_client, get_xlmr_client
+from app.services.v1.recommender import Recommender as RecommenderV1, CategoryIndex
+from app.services.v2.recommender import Recommender as RecommenderV2
+from app.cluster.user_clustering import ClusteringTrainer
+from app.cluster.gatherings_popularity import PopularityTrainer
 
 app = FastAPI(title="gangKU AI Server")
-app.include_router(api_v1_router, prefix="/api")
-
-setup_logging("INFO")
-app.add_middleware(RequestResponseLoggerMiddleware)
-
-if settings.ENV == "prod":
-    origins = [
-        "https://gangku.app",
-        "https://www.gangku.app",
-    ]
-else:  # dev or local
-    origins = ["*"]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.include_router(api_v2_router, prefix="/api")
 
 
-@app.on_event("startup")
-def startup_event():
-    """
-    서버 시작 시 실행되는 훅(hook).
-    - 모델 파일을 캐시에 다운로드 (최초 1회만 네트워크 필요)
-    - LocalCurseModel을 전역으로 로드
-    - 간단한 워밍업 호출 실행
-    """
-    # --------------------curse detection load--------------------
+def _init_logging(app: FastAPI) -> None:
+    setup_logging("INFO")
+    app.add_middleware(RequestResponseLoggerMiddleware)
+
+
+def _init_cors(app: FastAPI) -> None:
+    # 반드시 origins 지정 (없으면 CORS 차단)
+    origins = getattr(settings, "CORS_ALLOW_ORIGINS", ["*"])
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+
+def _init_routes(app: FastAPI) -> None:
+    # v2 모두 마운트
+    app.include_router(api_v2_router, prefix="/api")  # 기존대로 유지 (원하면 "/api/v2"로 변경)
+
+
+def _init_hf_cache() -> None:
     # 1. 모델 파일 캐시 다운로드 (없으면 받음, 있으면 캐시 활용)
     try:
         snapshot_download(
             repo_id=settings.CURSE_MODEL_ID,
-            token=None,                 # 공개 모델이므로 명시적으로 None
-            local_files_only=False      # 캐시에 없으면 받음
+            token=None,
+            local_files_only=False,
         )
         print("[Startup] HF snapshot_download ok.")
     except Exception as e:
         print(f"[Startup] HF snapshot_download skipped/failed: {e}")
 
+
+def _init_curse_model(app: FastAPI) -> None:
     # 2. 욕설 이진 모델 로드 & 워밍업
     try:
-        from app.filters.v1.curse_detection_model import LocalCurseModel
-        _CURSE_MODEL = LocalCurseModel()  # model_id가 None이면 settings에서 읽음
-        app.state.curse_model = _CURSE_MODEL
-        _ = _CURSE_MODEL.predict("안녕하세요")
+        model = LocalCurseModel()
+        _ = model.predict("안녕하세요")  # 워밍업
+        app.state.curse_model = model
         print("[Startup] Curse model warmed up.")
-        # ★ 엔드포인트에서 접근할 수 있도록 app.state에 저장
-        app.state.curse_model = _CURSE_MODEL
     except Exception as e:
+        app.state.curse_model = None
         print(f"[Startup] Curse model init/warmup failed: {e}")
 
+
+def _init_xlmr(app: FastAPI) -> None:
     # --------------------xlmr load--------------------
     # 1. XLMR 클라이언트 준비(환경변수 필요: XLMR_BASE_URL, XLMR_PATH, (선택)XLMR_API_KEY)
     try:
-        from app.callout.filter.registry import init_xlmr_client, get_xlmr_client
-        init_xlmr_client()  # env 기반 초기화
+        init_xlmr_client()
         xlmr = get_xlmr_client()
         app.state.xlmr_client = xlmr
-
         if xlmr is None:
             print("[Startup] XLMR client not configured (env missing).")
         else:
-            # 3-1) 워밍업
-            _ = xlmr.predict("this is a normal sentence")
-            print(_)
-
-            if _ != 0:
+            try:
+                _ = xlmr.predict("this is a normal sentence")  # 네트워크 상황 따라 실패 가능
                 print("[Startup] XLMR client warmed up.")
-            else:
+            except Exception:
                 print("[Startup] XLMR warmup failed (network). Will fallback until reachable.")
-
     except Exception as e:
-        # 외부 모델 장애가 있어도 서버 부트는 계속할지 여부는 정책으로 결정
+        app.state.xlmr_client = None
         print(f"[Startup] XLMR init/warmup failed: {e}")
 
-        # --- Recommender (deps.get_recommender 가 요구) ---
+
+def _init_recommenders(app: FastAPI) -> None:
+    # --- Recommender (deps.get_recommender 가 요구, v1, v2 둘 다 올리기) ---
     try:
-        from app.services.v1.recommender import Recommender, CategoryIndex
-        # 필요한 의존이 더 있으면 아래에서 채워 넣기
-        app.state.recommender = Recommender(cat_index=CategoryIndex())
-        print("[Startup] Recommender ready.")
+        app.state.recommender_v1 = RecommenderV1(cat_index=CategoryIndex())
+        print("[Startup] Recommender v1 ready.")
     except Exception as e:
-        print(f"[Startup] Recommender init failed: {e}")
+        app.state.recommender_v1 = None
+        print(f"[Startup] Recommender v1 init failed: {e}")
+
+    try:
+        app.state.recommender_v2 = RecommenderV2(artifacts_dir=settings.CLUSTER_ARTIFACT_DIR)
+        print("[Startup] Recommender v2 ready.")
+    except Exception as e:
+        app.state.recommender_v2 = None
+        print(f"[Startup] Recommender v2 init failed: {e}")
 
 
-@app.get("/health")
-def health_check():
-    """
-    서버 헬스체크 엔드포인트
-    """
-    return {"status": "ok"}
+def _init_batch_services(app: FastAPI) -> None:
+    # --- Clustering / Popularity batch services ---
+    try:
+        app.state.clustering_service = ClusteringTrainer(artifacts_dir=settings.CLUSTER_ARTIFACT_DIR)
+        app.state.popularity_service = PopularityTrainer(artifacts_dir=settings.POPULARITY_ARTIFACT_DIR)
+        print("[Startup] Clustering / Popularity services ready.")
+    except Exception as e:
+        app.state.clustering_service = None
+        app.state.popularity_service = None
+        print(f"[Startup] Clustering / Popularity services init failed: {e}")
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(title="gangKU AI Server")
+    _init_logging(app)
+    _init_cors(app)
+    _init_routes(app)
+
+    @app.on_event("startup")
+    def startup_event() -> None:
+        """
+        서버 시작 시 실행되는 훅(hook).
+        - 모델 파일을 캐시에 다운로드 (최초 1회만 네트워크 필요)
+        """
+        _init_hf_cache()
+        _init_curse_model(app)
+        _init_xlmr(app)
+        _init_recommenders(app)
+        _init_batch_services(app)
+
+    @app.get("/health")
+    def health_check():
+        return {"status": "ok"}
+
+    return app
+
+
+app = create_app()

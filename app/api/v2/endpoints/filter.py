@@ -35,6 +35,7 @@ filter 사용 시나리오
 
 from __future__ import annotations
 from typing import Dict, Literal, Optional
+
 from fastapi import APIRouter, HTTPException, Depends
 
 # 외부 DTO
@@ -62,7 +63,7 @@ _MATCHER = BlacklistMatcher(hot_reload=True)
 
 
 # --------------------------- 시나리오/정책 ---------------------------
-ScenarioT = Literal["nickname", "review", "description", "keyword", "title"]
+ScenarioT = Literal["nickname", "review", "gathering", "keyword", "title"]
 
 
 def _route_for_scenario(scenario: ScenarioT) -> Literal["curse", "xlmr"]:
@@ -85,7 +86,7 @@ def _threshold_for(scenario: ScenarioT, route: Literal["curse", "xlmr"]) -> floa
         return 0.6 if scenario in ("nickname", "keyword", "title") else 0.7
     if route == "xlmr":
         # 문맥형은 스코어 분포가 넓으므로 다소 높게
-        return 0.8 if scenario in ("review", "description") else 0.7
+        return 0.8 if scenario in ("review", "gathering") else 0.7
     return 0.7
 
 # =========================

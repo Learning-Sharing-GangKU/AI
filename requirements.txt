@@ -29,5 +29,7 @@ huggingface-hub==0.35.0    # 모델/체크포인트 다운로드
 safetensors==0.6.2         # 안전한 텐서 포맷
 nltk==3.9.1                # 텍스트 전처리/토큰화 등(필요 시)
 
+# --- clustering 사용 ===
+scikit-learn==1.7.2
 # --- (선택) 요청 편의: requests를 직접 사용할 경우에만 활성화 ---
 # requests==2.32.5
