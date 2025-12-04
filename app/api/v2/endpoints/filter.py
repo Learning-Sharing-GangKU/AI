@@ -87,13 +87,11 @@ def _threshold_for(scenario: ScenarioT, route: Literal["curse", "xlmr"]) -> floa
     if route == "xlmr":
         # 문맥형은 스코어 분포가 넓으므로 다소 높게
         return 0.8 if scenario in ("review", "description") else 0.7
-    return 0.7
+
 
 # =========================
 # 엔드포인트
 # =========================
-
-
 router = APIRouter(
     prefix="/text",
     tags=["text_filter"],

@@ -26,6 +26,7 @@ api_v2_router.include_router(recommendations_v1.router, prefix="/ai/v1", tags=["
 # /api/ai/v1/text/filter (POST)
 api_v2_router.include_router(filter_v1.router, prefix="/ai/v1", tags=["filter"])
 
+
 # http://127.0.0.1:8000/api/ai/v2/health
 # http://127.0.0.1:8000/api/ai/v2/gatherings/intro
 # http://127.0.0.1:8000/api/ai/v2/recommendations
