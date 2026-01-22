@@ -69,6 +69,7 @@ class AutoWriteService:
         - 요청(req)을 내부 도메인 객체로 변환 후 AI 호출 수행
         - 실패 시 fallback 템플릿 사용
         """
+
         print("[DEBUG] generate_intro() called")
         info = vars(req)
         router = Router()
@@ -77,6 +78,7 @@ class AutoWriteService:
 
         try:
             result = provider.generate_intro(info)
+
             print("[DEBUG] provider.generate_intro() 시작")
             if inspect.isawaitable(result):
                 text = await result

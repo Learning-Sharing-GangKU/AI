@@ -74,7 +74,7 @@ class Recommender:
 
         # 콜드스타트 판정: 선호가 비어 있으면 콜드스타트
         # user_id가 존재하지 않을 떄, 콜드스타트
-        if getattr(user, "is_not_authenticated", False) or not getattr(user, "preferred_categories", None):
+        if getattr(user, "user_id", None) is None:
             ranked = self._rank_coldstart(rooms, now)
             return ranked
 
