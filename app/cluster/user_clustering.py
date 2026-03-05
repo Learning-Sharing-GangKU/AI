@@ -69,10 +69,10 @@ class ClusteringTrainer:
         request: ClusterRefreshRequest,
     ) -> ClusterRefreshResponse:
         """
-        배치 엔드포인트에서 호출할 메인 메서드입니다.
+        배치 엔드포인트에서 호출할 메인 메서드.
         1) 요청으로 받은 사용자 리스트를 numpy 행렬로 변환하고
-        2) SVD(카테고리) + StandardScaler(사용자 학번, 나이, 참가횟수) + KMeans를 학습한 뒤
-        3) 결과를 디스크에 저장하고
+        2) SVD(카테고리) + StandardScaler(사용자 학번, 나이, 참가횟수) + KMeans를 학습
+        3) 결과 디스크에 저장
         4) 요약 정보를 ClusterRefreshResult로 반환합니다.
         """
 
@@ -81,7 +81,7 @@ class ClusteringTrainer:
             # 일말의 예외처리
             raise ValueError("사용자 리스트가 비어 있습니다. 최소 1명 이상 필요합니다.")
 
-        # 1. 카테고리 vocab 생성 -> 다시 체크
+        # 1. 카테고리 vocab 생성
         category_vocab = self._build_category_vocab(users)
 
         # 2. multi-hot 행렬 생성 (n_users x n_categories)

@@ -28,11 +28,15 @@ filter 사용 시나리오
 # - 전처리는 "탐지 용이성"을 위한 표준화이며, 의미를 변형하지 않도록 보수적으로 구현합니다.
 
 from __future__ import annotations
+from app.core.config import settings
 
+from typing import Literal
 import re
 import unicodedata
 from dataclasses import dataclass
 from typing import Pattern
+
+RouteT = Literal["curse", "xlmr"]
 
 
 @dataclass(frozen=True)
@@ -184,6 +188,51 @@ class TextPreprocessor:
         x = re.sub(r"\(\s+", "(", x)
         x = re.sub(r"\s+\)", ")", x)
         return x
+
+
+# 사용 흐름(엔드포인트):
+#   normalized = _TEXT_PREPROCESSOR.preprocess(raw)
+#   policy = _ROUTER.policy(normalized)   # route, threshold
+#   route = policy.route
+#   threshold = policy.threshold
+@dataclass(frozen=True)
+class LengthPolicy:
+    route: RouteT
+    threshold: float
+    length: int
+    cutoff: int
+
+
+class LengthBasedRouter:
+    """
+    normalized_text 길이 기준 라우팅
+    - length <= cutoff  -> curse
+    - length >  cutoff  -> xlmr
+    """
+
+    def __init__(self) -> None:
+        # ✅ 환경변수/설정에서 읽음
+        self.cutoff: int = int(settings.FILTER_LENGTH_CUTOFF)
+        self.curse_threshold: float = float(settings.FILTER_CURSE_THRESHOLD)
+        self.xlmr_threshold: float = float(settings.FILTER_XLMR_THRESHOLD)
+
+    def policy(self, normalized_text: str) -> LengthPolicy:
+        text = normalized_text or ""
+        length = len(text)
+
+        if length <= self.cutoff:
+            route: RouteT = "curse"
+            threshold = self.curse_threshold
+        else:
+            route = "xlmr"
+            threshold = self.xlmr_threshold
+
+        return LengthPolicy(
+            route=route,
+            threshold=threshold,
+            length=length,
+            cutoff=self.cutoff,
+        )
 
 
 # 모듈 단위의 간단 self-test (로컬에서만 사용, 배포 시 무해)

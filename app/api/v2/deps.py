@@ -6,7 +6,6 @@ from app.filters.v1.curse_detection_model import LocalCurseModel
 from app.services.v1.recommender import Recommender as RecommenderV1
 from app.services.v2.recommender import Recommender as RecommenderV2
 
-
 from app.cluster.user_clustering import ClusteringTrainer
 from app.cluster.gatherings_popularity import PopularityTrainer
 

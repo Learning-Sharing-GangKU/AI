@@ -183,9 +183,6 @@ class PopularityRefreshResponse(BaseModel):
 class FilterCheckRequest(BaseModel):
     text: str = Field(..., min_length=1, description="검사 대상 텍스트")
     # 백에서 request body에서 받아서 갈거임
-    scenario: Literal["nickname", "keyword", "review", "description", "title"] = Field(
-        ..., description="사용 시나리오"
-    )
 
 
 class FilterCheckResponse(BaseModel):
@@ -197,9 +194,6 @@ class FilterCheckResponse(BaseModel):
     # 아래는 내부 회의 후 확정
     score: float
     matches: dict
-    scenario: Literal["nickname", "keyword", "review", "description", "title"] = Field(
-        ..., description="금칙어 검출"
-    )
 
 
 # ----- 모임소개 자동생성(API) -----
