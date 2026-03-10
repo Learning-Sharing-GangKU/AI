@@ -30,9 +30,16 @@ from datetime import datetime, timezone
 
 from app.core.config import settings
 
+from app.models.schemas import (
+    RecommendByClusteringModelRequest,
+    RecommendationResponse,
+)
+
 from app.models.domain import RoomRecommandUserMetaV2
 
 from app.models.enums import Category
+
+from app.processors.recommand_preprocessing import clustering_request_usermeta
 
 
 class Recommender:
@@ -41,12 +48,8 @@ class Recommender:
         app/cluster/gatherings_popularity.py
         app/cluster/user_clustering.py
         그 전에 생성된 모델을 불러와 단순하게 해당 cluster에 대한 추천만 해주면 되는거다.
-
         """
-        if artifacts_dir is None:
-            artifacts_dir = Path(settings.CLUSTER_ARTIFACT_DIR)
-        else:
-            artifacts_dir = Path(artifacts_dir)
+        artifacts_dir = Path(artifacts_dir or settings.CLUSTER_ARTIFACT_DIR)
 
         self.artifacts_dir: Path = artifacts_dir
 
@@ -92,10 +95,11 @@ class Recommender:
     # -------------------------------
     def rank(
             self,
-            user=RoomRecommandUserMetaV2,
+            req: RecommendByClusteringModelRequest,
             limit: int = settings.RECOMMANDS_LIMIT,
-            now: Optional[datetime] = None,
     ) -> Optional[List[int]]:
+
+        user = clustering_request_usermeta(req)
 
         if not getattr(self, "artifacts_loaded", False):
             # fallback 정책(1)
@@ -124,7 +128,6 @@ class Recommender:
     # -------------------------------
     # public API : cluster 예측, RecommendByClusteringModelRequest cluster_id 없을 경우
     # -------------------------------
-
     def predict_cluster(self, req: RoomRecommandUserMetaV2) -> int:
         # 1. numeric feature
         age = req.user_age or 0

@@ -50,7 +50,7 @@ router = APIRouter(
 
 # http://127.0.0.1:8000/api/ai/v2/refresh/clustering
 @router.post("/clustering", response_model=ClusterRefreshResponse)
-def filter_check(
+def refresh_clustering(
     req: ClusterRefreshRequest,
     service: ClusteringTrainer = Depends(get_clustering_service_dep)
 ) -> ClusterRefreshResponse:

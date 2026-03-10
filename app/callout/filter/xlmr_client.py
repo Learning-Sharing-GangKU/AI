@@ -79,7 +79,7 @@ class XLMRClient:
         toxic_entry = self._extract_toxic_entry(data)
         toxic_score: Optional[float] = (float(toxic_entry["score"]) if toxic_entry and "score" in toxic_entry else None)
 
-        return toxic_score
+        return toxic_score if toxic_score is not None else 0.0
 
     @staticmethod
     def _extract_toxic_entry(data: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:

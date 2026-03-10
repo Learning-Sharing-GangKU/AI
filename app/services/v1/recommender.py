@@ -22,12 +22,16 @@ from app.core.config import settings
 
 from app.models.enums import Category
 
+from app.processors.recommand_preprocessing import to_user_meta, to_room_meta_list, clustering_request_usermeta
+
 from app.models.domain import (
     RoomRecommandRoomMetaV1,
     RoomRecommandUserMetaV1
 )
-# from app.processors.preprocessors import normalize_category
-# -> json data의 전처리를 preproessors에서 할 것 인지.
+
+from app.models.schemas import (
+    RecommendByClusteringModelRequest,
+)
 
 
 class CategoryIndex:
@@ -59,18 +63,14 @@ class Recommender:
 
     def rank(
         self,
-        user: RoomRecommandUserMetaV1,
-        rooms: List[RoomRecommandRoomMetaV1],
+        req: RecommendByClusteringModelRequest,
         limit: int = settings.RECOMMANDS_LIMIT,
         now: Optional[datetime] = None,
     ) -> List[int]:
-
-        """_summary_
-
-        Returns:
-            List[int] -> gatherings_id return
-        """
         now = now or datetime.now(timezone.utc)
+
+        user = to_user_meta(req)
+        rooms = to_room_meta_list(req.gatherings)
 
         # 콜드스타트 판정: 선호가 비어 있으면 콜드스타트
         # user_id가 존재하지 않을 떄, 콜드스타트

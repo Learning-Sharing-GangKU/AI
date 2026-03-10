@@ -211,7 +211,6 @@ class LengthBasedRouter:
     """
 
     def __init__(self) -> None:
-        # ✅ 환경변수/설정에서 읽음
         self.cutoff: int = int(settings.FILTER_LENGTH_CUTOFF)
         self.curse_threshold: float = float(settings.FILTER_CURSE_THRESHOLD)
         self.xlmr_threshold: float = float(settings.FILTER_XLMR_THRESHOLD)

@@ -62,51 +62,46 @@ async def recommend(
     1. user_id가 없는 경우 -> v1에서 했던 것처럼 coldstart진행
     2. user_id존재 -> gatherings_popularity에서 cluster당 인기 방 response
     """
+
+    # 0. 요청 바디 로그
+    logger.info(
+        "POST /recommendations 요청 수신 user_id=%s preferred_categories=%s num_gatherings=%s",
+        req.userId,
+        req.preferredCategories,
+        len(req.gatherings) if req.gatherings else 0,
+    )
+
+    # V2 try-exception 시작
+    items = None
     try:
-        # 0. 요청 바디 로그
-        logger.info(
-            "POST /recommendations 요청 수신 user_id=%s preferred_categories=%s num_gatherings=%s",
-            req.userId,
-            req.preferredCategories,
-            len(req.gatherings) if req.gatherings else 0,
-        )
-
-        UserMetaV2 = clustering_request_usermeta(req)
-        logger.info("V2 UserMeta 생성 완료: %s", UserMetaV2)
-
         items = recommender_v2.rank(
-            user=UserMetaV2,
+            req=req,
             now=datetime.now(timezone.utc),
         )
         logger.info("V2 rank 결과: %s", items)
 
-        # fallback 정책
-        if items is None:
-            logger.info("V2에서 추천 결과가 없어 V1 fallback 경로로 진입합니다.")
+    except Exception as e:
+        logger.warning("V2 rank 실패, V1 fallback 진행: %s", e)
+    # V2 추론 try-exception 종료
 
-            user = RoomRecommandUserMetaV1(
-                user_id=req.userId,
-                preferred_categories=req.preferredCategories,
-                user_age=req.age
-            )
+    # fallback try-exception 시작
+    if items is None:
+        logger.info("V2에서 추천 결과가 없어 V1 fallback 경로로 진입합니다.")
 
-            rooms = to_room_meta_list(req.gatherings)
-            logger.info("V1 UserMeta=%s, rooms 개수=%s", user, len(rooms))
-
+        try:
             items = recommender_v1.rank(
-                user=user,
-                rooms=rooms,
+                req=req,
                 now=datetime.now(timezone.utc)
             )
             logger.info("V1 rank 결과: %s", items)
 
-        logger.info("최종 추천 결과 items=%s", items)
-        return RecommendationResponse(items=items)
+        except HTTPException:
+            # HTTPException은 그대로 전달
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500,
+                                detail=f"recommendation failed: {str(e)}")
+    # fallback try-exception 종료
 
-    except HTTPException:
-        # HTTPException은 그대로 전달
-        raise
-    except Exception as e:
-        # 내부 오류는 500으로 래핑
-        raise HTTPException(status_code=500,
-                            detail=f"recommendation failed: {str(e)}")
+    logger.info("최종 추천 결과 items=%s", items)
+    return RecommendationResponse(items=items)
