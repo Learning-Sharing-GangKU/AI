@@ -7,6 +7,7 @@
 
 # app/processors/recommend_preprocessing.py
 
+from datetime import timezone
 from typing import Iterable, List
 from app.models.schemas import GatheringIn, RecommendByClusteringModelRequest
 from app.models.domain import RoomRecommandRoomMetaV1, RoomRecommandUserMetaV1, RoomRecommandUserMetaV2
@@ -31,6 +32,10 @@ def to_room_meta_list(gatherings: Iterable[GatheringIn]) -> List[RoomRecommandRo
     """
     out: List[RoomRecommandRoomMetaV1] = []
     for g in gatherings:
+        created_at = g.createdAt
+        if created_at is not None and created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+
         out.append(
             RoomRecommandRoomMetaV1(
                 room_id=g.gatheringId,  # OK
@@ -40,7 +45,7 @@ def to_room_meta_list(gatherings: Iterable[GatheringIn]) -> List[RoomRecommandRo
                 # 도메인 필드명에 맞춰 매핑(★ 중요)
                 capacity_member=g.capacity,
                 current_member=g.participantCount,
-                updated_at=g.createdAt,
+                updated_at=created_at,
             )
         )
     return out
@@ -53,5 +58,5 @@ def clustering_request_usermeta(req: RecommendByClusteringModelRequest) -> RoomR
         preferred_categories=req.preferredCategories,
         user_age=req.age,
         user_enroll=req.enrollNumber,
-        user_join_count=req.user_join_count,
+        user_join_count=req.userJoinCount,
     )

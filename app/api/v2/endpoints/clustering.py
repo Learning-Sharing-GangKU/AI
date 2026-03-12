@@ -25,8 +25,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.models.schemas import (
     ClusterRefreshRequest,
     ClusterRefreshResponse,
-
-    UserActionlog,
     PopularityRefreshRequest)
 
 
@@ -52,7 +50,7 @@ router = APIRouter(
 @router.post("/clustering", response_model=ClusterRefreshResponse)
 def refresh_clustering(
     req: ClusterRefreshRequest,
-    service: ClusteringTrainer = Depends(get_clustering_service_dep)
+    clustering_service: ClusteringTrainer = Depends(get_clustering_service_dep)
 ) -> ClusterRefreshResponse:
     """
     [배치용 엔드포인트]
@@ -75,7 +73,7 @@ def refresh_clustering(
                 detail="사용자 리스트가 비어 있습니다. 최소 1명 이상의 사용자 정보가 필요합니다.",
             )
 
-        result: ClusterRefreshResponse = service.refresh_clusters(req)
+        result: ClusterRefreshResponse = clustering_service.refresh_clusters(req)
         return result
 
     except HTTPException:
@@ -120,7 +118,7 @@ def refresh_popularity(
         # log_list가 비어 있는 경우, 단순히 아무 것도 하지 않고 성공으로 처리할지
         # 400 에러로 처리할지는 정책에 따라 결정하시면 됩니다.
         # 여기서는 "비어 있으면 할 일이 없다"라고 보고 조용히 반환하는 쪽으로 가정하겠습니다.
-        if not req.log_list:
+        if not req.logList:
             return
 
         service.refresh_popularity(req)

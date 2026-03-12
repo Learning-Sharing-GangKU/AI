@@ -72,14 +72,9 @@ class RecommendByClusteringModelRequest(BaseModel):
     enrollNumber: Optional[int] = Field(
         None, description="사용자 학번(선택)"
     )
-    user_join_count: Optional[int] = Field(
+    userJoinCount: Optional[int] = Field(
         None, description="사용자의 모임 참여 횟수(선택)"
     )
-    # 해당 유저의 cluster 정보를 미리 받기 위함.(없음 말고)
-    cluster_id: Optional[int] = Field(
-        None, gt=0, description="해당 user가 cluster가 존재하는지."
-    )
-
     # V2 : user_id 존재하지않거나, clustering 아티팩트 존재 X
     # -> V1으로 보내서, 처리해야하기 위함 fallback
     gatherings: Optional[List[GatheringIn]] = None
@@ -91,29 +86,29 @@ class RecommendationResponse(BaseModel):
     내부 로직 정렬 후 RecommendationItem들만 리스트로 보내주면 된다.
     """
     """서버 → 클라이언트: 추천 결과 목록."""
-    items: List[int] = Field(default_factory=list)
+    gatheringsId: List[int] = Field(default_factory=list)
     # dict 보다는 키/값 타입 지정
     # debug: Optional[Dict[str, str]] = None
 
 
 # ----- cluster 최신화 -----
 class ClusteringUserData(BaseModel):
-    user_id: Optional[int] = Field(
+    userId: Optional[int] = Field(
         None, gt=0, description="사용자 식별자(로그인 이용자 시 int, 비로그인 이용자 시 None)"
     )
-    preferred_categories: Optional[List[Category]] = Field(
+    preferredCategories: Optional[List[Category]] = Field(
         None,
         min_length=1,
         max_length=3,
         description="선호 카테고리(최대 3개)"
     )
-    user_age: Optional[int] = Field(
+    age: Optional[int] = Field(
         None, ge=20, le=100, description="사용자 나이(선택)"
     )
-    user_enroll: Optional[int] = Field(
+    enrollNumber: Optional[int] = Field(
         None, description="사용자 학번(선택)"
     )
-    user_join_count: Optional[int] = Field(
+    userJoinCount: Optional[int] = Field(
         None, description="사용자의 모임 참여 횟수(선택)"
     )
 
@@ -148,10 +143,10 @@ class ClusterRefreshResponse(BaseModel):
 
 # ----- cluster당 선호 방 최신화 -----
 class UserActionlog(BaseModel):
-    user_id: Optional[int] = Field(
+    userId: Optional[int] = Field(
         None, gt=0, description="사용자 식별자(로그인 이용자 시 int, 비로그인 이용자 시 None)"
     )
-    room_id: int = Field(
+    gatheringId: int = Field(
         ..., gt=0, description="모임 식별자(양의 정수)"
     )
     status: UserStatus
@@ -162,7 +157,7 @@ class PopularityRefreshRequest(BaseModel):
     사용자들의 참여로그를 분석해
     각각의 군집당 어떤 방이 인기있는지 분석을 하기 위함.
     """
-    log_list: List[UserActionlog]
+    logList: List[UserActionlog]
 
 
 class PopularityRefreshResponse(BaseModel):
@@ -192,8 +187,8 @@ class FilterCheckResponse(BaseModel):
 
     allowed: bool
     # 아래는 내부 회의 후 확정
-    score: float
-    matches: dict
+    # score: float
+    # matches: dict
 
 
 # ----- 모임소개 자동생성(API) -----

@@ -28,14 +28,12 @@ def to_filter_check_response(decision: FilterDecision) -> FilterCheckResponse:
     - reason 제거
     - matches 포맷 통일
     """
-    matches: Dict[str, Any] = {
-        "blacklist": decision.blacklist,
-        "route": decision.route,
-        "threshold": decision.threshold,
-    }
+    # matches: Dict[str, Any] = {
+    #     "blacklist": decision.blacklist,
+    #     "route": decision.route,
+    #     "threshold": decision.threshold,
+    # }
 
     return FilterCheckResponse(
         allowed=decision.allowed,
-        score=float(decision.score),
-        matches=matches,
     )

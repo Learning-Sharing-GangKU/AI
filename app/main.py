@@ -21,9 +21,6 @@ from app.services.v2.recommender import Recommender as RecommenderV2
 from app.cluster.user_clustering import ClusteringTrainer
 from app.cluster.gatherings_popularity import PopularityTrainer
 
-app = FastAPI(title="gangKU AI Server")
-app.include_router(api_v2_router, prefix="/api")
-
 
 def _init_logging(app: FastAPI) -> None:
     setup_logging("INFO")

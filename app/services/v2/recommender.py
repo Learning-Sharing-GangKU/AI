@@ -21,18 +21,17 @@
 
 from __future__ import annotations
 from pathlib import Path
+import logging
 import joblib
 import json
 import numpy as np
 
-from typing import List, Dict, Iterable, Optional
-from datetime import datetime, timezone
+from typing import List, Dict, Optional
 
 from app.core.config import settings
 
 from app.models.schemas import (
     RecommendByClusteringModelRequest,
-    RecommendationResponse,
 )
 
 from app.models.domain import RoomRecommandUserMetaV2
@@ -40,6 +39,8 @@ from app.models.domain import RoomRecommandUserMetaV2
 from app.models.enums import Category
 
 from app.processors.recommand_preprocessing import clustering_request_usermeta
+
+logger = logging.getLogger(__name__)
 
 
 class Recommender:
@@ -104,12 +105,21 @@ class Recommender:
         if not getattr(self, "artifacts_loaded", False):
             # fallback 정책(1)
             # 아티팩트 자체가 아직 없으면 무조건 v1로 넘김
+            logger.warning(
+                "V2 rank → fallback(1): 아티팩트 미로드 user_id=%s", user.user_id
+            )
             return None
 
         if user.user_id is None or not self.cluster_popularity:
             # fallback 정책(2)
             # - 비로그인 유저 (user_id 없음)
             # - popularity 아티팩트 없음/비어 있음
+            logger.warning(
+                "V2 rank → fallback(2): user_id=%s artifacts_loaded=%s cluster_popularity_empty=%s",
+                user.user_id,
+                self.artifacts_loaded,
+                not self.cluster_popularity,
+            )
             return None
 
         cluster_id = self.predict_cluster(user)

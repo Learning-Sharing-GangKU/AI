@@ -97,4 +97,5 @@ class FilterService:
             threshold=policy.threshold,
             blacklist=[],
         )
+
         return to_filter_check_response(decision)

@@ -35,7 +35,6 @@ class Settings(BaseSettings):
     XLMR_CB_COOLDOWN_SEC: int | None = None
 
     # --- FILTER PREPROCESSING ---
-# --- FILTER PREPROCESSING ---
     FILTER_LENGTH_CUTOFF: int = 20
     FILTER_CURSE_THRESHOLD: float = 0.6
     FILTER_XLMR_THRESHOLD: float = 0.8

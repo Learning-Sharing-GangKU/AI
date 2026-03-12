@@ -3,39 +3,21 @@
 # - 추천 API HTTP 엔드포인트(컨트롤러).
 # - 요청 스키마 검증 후, 서비스(app/services/recommender.py)의 Recommender.rank() 호출.
 import logging
-from fastapi import APIRouter, HTTPException, Depends, status
-from typing import List
+from fastapi import APIRouter, HTTPException, Depends
 from datetime import datetime, timezone
-from app.api.v1.deps import get_recommender
 
 from app.api.v2.deps import get_recommender_v1, get_recommender_v2
 
-# 0. 전처리
-from app.processors.recommand_preprocessing import (
-    clustering_request_usermeta,
-    to_room_meta_list
-)
-
-# 1. 외부 DTO
+# 외부 DTO
 from app.models.schemas import (
     RecommendByClusteringModelRequest,
     RecommendationResponse,
 )
 
-# 2. 내부 DTO
-from app.models.domain import (
-    RoomRecommandUserMetaV1,
-    RoomRecommandRoomMetaV1,
-
-    RoomRecommandUserMetaV2
-)
-
-# 3. Recommender 서비스 인스턴스
-#    - 실제 환경에선 DI(의존성 주입)로 바꿀 수 있습니다.
+# Recommender 서비스 인스턴스
 from app.services.v2.recommender import Recommender as v2_recommender
 
 from app.services.v1.recommender import (
-    CategoryIndex,
     Recommender as fallback_recommender
 )
 
@@ -76,7 +58,6 @@ async def recommend(
     try:
         items = recommender_v2.rank(
             req=req,
-            now=datetime.now(timezone.utc),
         )
         logger.info("V2 rank 결과: %s", items)
 
@@ -86,8 +67,6 @@ async def recommend(
 
     # fallback try-exception 시작
     if items is None:
-        logger.info("V2에서 추천 결과가 없어 V1 fallback 경로로 진입합니다.")
-
         try:
             items = recommender_v1.rank(
                 req=req,
@@ -95,13 +74,11 @@ async def recommend(
             )
             logger.info("V1 rank 결과: %s", items)
 
-        except HTTPException:
-            # HTTPException은 그대로 전달
-            raise
         except Exception as e:
+            logger.error("V1 rank 실패: %s", e)  # 추가
             raise HTTPException(status_code=500,
                                 detail=f"recommendation failed: {str(e)}")
     # fallback try-exception 종료
 
     logger.info("최종 추천 결과 items=%s", items)
-    return RecommendationResponse(items=items)
+    return RecommendationResponse(gatheringsId=items)
