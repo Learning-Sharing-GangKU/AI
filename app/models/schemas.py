@@ -90,7 +90,7 @@ class RecommendationResponse(BaseModel):
     AI -> BE
     내부 로직 정렬 후 RecommendationItem들만 리스트로 보내주면 된다.
     """
-    """서버 → 클라이언트: 추천 결과 목록."""
+    """서버 → 클라이언트: 추천  결과 목록."""
     items: List[int] = Field(default_factory=list)
     # dict 보다는 키/값 타입 지정
     # debug: Optional[Dict[str, str]] = None

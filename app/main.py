@@ -5,13 +5,15 @@
 #   → 이후부터는 캐시에서 사용 (오프라인 모드 가능)
 # - 워밍업: 간단한 텍스트로 모델을 1회 호출하여 로딩 지연을 앱 시작 시 해결
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 # from app.api.v1.router import api_v1_router
 from app.api.v2.router import api_v2_router
 from huggingface_hub import snapshot_download
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.logging import setup_logging, RequestResponseLoggerMiddleware
+from app.core.exceptions import FilterNotAllowedError, AIGenerationError
 
 # 서비스/클라이언트
 from app.filters.v1.curse_detection_model import LocalCurseModel
@@ -20,6 +22,8 @@ from app.services.v1.recommender import Recommender as RecommenderV1, CategoryIn
 from app.services.v2.recommender import Recommender as RecommenderV2
 from app.cluster.user_clustering import ClusteringTrainer
 from app.cluster.gatherings_popularity import PopularityTrainer
+from app.callout.autowrite.providers import Provider as AutoWriteProvider
+from app.services.v1.autowrite import AutoWriteService
 
 app = FastAPI(title="gangKU AI Server")
 app.include_router(api_v2_router, prefix="/api")
@@ -121,6 +125,16 @@ def _init_batch_services(app: FastAPI) -> None:
         print(f"[Startup] Clustering / Popularity services init failed: {e}")
 
 
+def _init_autowrite_service(app: FastAPI) -> None:
+    try:
+        provider = AutoWriteProvider()
+        app.state.autowrite_service = AutoWriteService(provider)
+        print("[Startup] AutoWriteService ready.")
+    except Exception as e:
+        app.state.autowrite_service = None
+        print(f"[Startup] AutoWriteService init failed: {e}")
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="gangKU AI Server")
     _init_logging(app)
@@ -138,6 +152,31 @@ def create_app() -> FastAPI:
         _init_xlmr(app)
         _init_recommenders(app)
         _init_batch_services(app)
+        _init_autowrite_service(app)
+
+    @app.exception_handler(FilterNotAllowedError)
+    async def filter_not_allowed_handler(request: Request, exc: FilterNotAllowedError):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": {
+                    "code": "FILTER_NOT_ALLOWED",
+                    "message": f"[{exc.field}] 입력값에 부적절한 표현이 포함되어 있습니다."
+                }
+            }
+        )
+
+    @app.exception_handler(AIGenerationError)
+    async def ai_generation_error_handler(request: Request, exc: AIGenerationError):
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": {
+                    "code": "AI_GENERATION_FAILED",
+                    "message": str(exc)
+                }
+            }
+        )
 
     @app.get("/health")
     def health_check():

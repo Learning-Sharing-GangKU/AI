@@ -1,13 +1,12 @@
 # app/processors/autowrite_preprocessing.py
-from typing import List, Union
+from typing import List
 from datetime import datetime
-
-from fastapi import APIRouter, HTTPException, Depends
 
 from app.models.schemas import AutoWriteRequest
 from app.models.domain import AutoWrite
 from app.filters.v1.curse_detection_model import LocalCurseModel
 from app.filters.v1.blocklistV0 import BlacklistMatcher
+from app.core.exceptions import FilterNotAllowedError
 
 
 # 공백 정규화
@@ -37,7 +36,7 @@ def mapping(
     req: AutoWriteRequest,
     curse_model: LocalCurseModel,
     blacklist: BlacklistMatcher = BlacklistMatcher(),
-) -> Union[AutoWrite, str]:
+) -> AutoWrite:
 
     # 1) 정규화
     title_norm = normalize_ws(req.title)
@@ -48,7 +47,7 @@ def mapping(
     # ----------------------------------------------------------------------
     bl_title_hits = blacklist.scan(title_norm)
     if bl_title_hits:
-        return "title"
+        raise FilterNotAllowedError("title")
 
     # ----------------------------------------------------------------------
     # 3) 블랙리스트(사전 기반) 탐지 - 키워드
@@ -56,7 +55,7 @@ def mapping(
     for kw_norm in keyword_norms:
         bl_kw_hits = blacklist.scan(kw_norm)
         if bl_kw_hits:
-            return "keyword"
+            raise FilterNotAllowedError("keyword")
 
     # ----------------------------------------------------------------------
     # 4) ML 기반 독성 모델 탐지
@@ -66,13 +65,13 @@ def mapping(
     # 제목 점수
     title_score = curse_model.predict(req.title)
     if title_score >= threshold:
-        return "title"
+        raise FilterNotAllowedError("title")
 
     # 키워드 점수
     for kw in req.keywords:
         kw_score = curse_model.predict(kw)
         if kw_score >= threshold:
-            return "keyword"
+            raise FilterNotAllowedError("keyword")
 
     # ----------------------------------------------------------------------
     # 5) 모든 필터 통과 → AutoWrite domain 모델로 매핑

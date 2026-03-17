@@ -10,14 +10,14 @@ api_v2_router = APIRouter()
 
 
 # http://127.0.0.1:8000/api/ai/v1/health
-# http://127.0.0.1:8000/api/ai/v1/gatherings/intro/stream
+# http://127.0.0.1:8000/api/ai/v1/intro
 # http://127.0.0.1:8000/api/ai/v1/recommendations
 # http://127.0.0.1:8000/api/ai/v1/text/filter
 
 # /api/ai/v1/health (POST)
 api_v2_router.include_router(health_v1.router, prefix="/ai/v1", tags=["health"])
 
-# /api/ai/v1/gatherings/intro/stream (POST)
+# /api/ai/v1/intro (POST)
 api_v2_router.include_router(autowrite_v1.router, prefix="/ai/v1", tags=["autowrite"])
 
 # /api/ai/v1/recommendations (POST)
@@ -28,7 +28,7 @@ api_v2_router.include_router(filter_v1.router, prefix="/ai/v1", tags=["filter"])
 
 
 # http://127.0.0.1:8000/api/ai/v2/health
-# http://127.0.0.1:8000/api/ai/v2/gatherings/intro
+# http://127.0.0.1:8000/api/ai/v2/intro
 # http://127.0.0.1:8000/api/ai/v2/recommendations
 # http://127.0.0.1:8000/api/ai/v2/text/filter
 # http://127.0.0.1:8000/api/ai/v2/refresh/clustering
@@ -37,7 +37,7 @@ api_v2_router.include_router(filter_v1.router, prefix="/ai/v1", tags=["filter"])
 # /api/ai/v2/health (POST)
 api_v2_router.include_router(health_v2.router, prefix="/ai/v2", tags=["health"])
 
-# /api/ai/v2/gatherings/intro/stream (POST)
+# /api/ai/v2/intro (POST)
 api_v2_router.include_router(autowrite_v2.router, prefix="/ai/v2", tags=["autowrite"])
 
 # /api/ai/v2/recommendations (POST)

@@ -2,6 +2,7 @@
 from typing import Optional
 from fastapi import Request, HTTPException
 from app.services.v1.recommender import Recommender, CategoryIndex
+from app.services.v1.autowrite import AutoWriteService
 
 from app.callout.filter.xlmr_client import XLMRClient
 from app.filters.v1.curse_detection_model import LocalCurseModel
@@ -27,3 +28,10 @@ def get_recommender(request: Request) -> "Recommender":
     if recommender is None:
         raise HTTPException(status_code=500, detail="Recommender not initialized.")
     return recommender
+
+
+def get_autowrite_service(request: Request) -> AutoWriteService:
+    svc = getattr(request.app.state, "autowrite_service", None)
+    if svc is None:
+        raise HTTPException(status_code=500, detail="AutoWriteService not initialized.")
+    return svc

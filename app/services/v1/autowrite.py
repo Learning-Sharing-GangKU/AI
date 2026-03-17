@@ -1,16 +1,12 @@
 # app/services/v1/autowrite.py
 from datetime import datetime
-from app.callout.autowrite.router import Router
+from app.callout.autowrite.providers import Provider
 from app.models.schemas import AutoWriteResponse
 from app.models.domain import AutoWrite
 from app.processors.autowrite_postprocessing import safe_strip, clamp_length
+from app.core.exceptions import AIGenerationError
 from types import AsyncGeneratorType
-from dotenv import load_dotenv
-import os
 import inspect
-
-env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
-load_dotenv(env_path)
 
 
 class FallbackWriter:
@@ -63,6 +59,10 @@ class FallbackWriter:
 class AutoWriteService:
     """AI 호출 및 실패 시 Fallback 템플릿 반환."""
 
+    def __init__(self, provider: Provider) -> None:
+        self.provider = provider
+        self.fallback_writer = FallbackWriter()
+
     async def generate_intro(self, req: AutoWrite) -> AutoWriteResponse:
         """
         모임 소개문 자동 생성.
@@ -72,12 +72,9 @@ class AutoWriteService:
 
         print("[DEBUG] generate_intro() called")
         info = vars(req)
-        router = Router()
-        provider = router.get_provider()
-        fallback_writer = FallbackWriter()
 
         try:
-            result = provider.generate_intro(info)
+            result = self.provider.generate_intro(info)
 
             print("[DEBUG] provider.generate_intro() 시작")
             if inspect.isawaitable(result):
@@ -90,8 +87,12 @@ class AutoWriteService:
             else:
                 text = str(result)
 
-        except Exception:
-            text = fallback_writer.render_meeting_template(req)
+        except Exception as ai_err:
+            print(f"[WARN] AI 생성 실패, fallback 시도: {ai_err}")
+            try:
+                text = self.fallback_writer.render_meeting_template(req)
+            except Exception as fb_err:
+                raise AIGenerationError(cause=fb_err) from fb_err
 
         cleaned = safe_strip(text)
         max_chars = getattr(req, "max_chars", 800)
@@ -107,12 +108,9 @@ class AutoWriteService:
         print("[DEBUG] stream_intro() called")
         info = vars(req)
 
-        router = Router()
-        provider = router.get_provider()
-
         print("[DEBUG] provider.stream_intro() 시작")
 
-        gen = provider.stream_intro(info)
+        gen = self.provider.stream_intro(info)
 
         print("[DEBUG] provider.stream_intro() type:", type(gen))
 
