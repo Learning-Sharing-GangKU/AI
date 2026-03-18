@@ -1,6 +1,7 @@
 from typing import Optional
 from fastapi import Request, HTTPException
 from app.callout.filter.xlmr_client import XLMRClient
+from app.core.exception import AppException, ErrorCode
 from app.filters.v1.curse_detection_model import LocalCurseModel
 
 from app.services.v1.recommender import Recommender as RecommenderV1
@@ -11,10 +12,10 @@ from app.cluster.gatherings_popularity import PopularityTrainer
 
 
 def get_curse_model_dep(request: Request) -> LocalCurseModel:
-    m = getattr(request.app.state, "curse_model", None)
-    if m is None:
-        raise HTTPException(status_code=500, detail="Curse model not initialized.")
-    return m
+    model = getattr(request.app.state, "curse_model", None)
+    if model is None:
+        raise AppException(ErrorCode.INTERNAL_ERROR, "curse_model이 초기화되지 않았습니다.")
+    return model
 
 
 def get_xlmr_client_dep(request: Request) -> Optional[XLMRClient]:
@@ -31,7 +32,7 @@ def get_recommender_v1(request: Request) -> RecommenderV1:
     """
     recommender = getattr(request.app.state, "recommender_v1", None)
     if recommender is None:
-        raise HTTPException(status_code=500, detail="RecommenderV1 not initialized.")
+        raise AppException(ErrorCode.RECOMMENDATION_FAILED, "recommender_v1이 초기화되지 않았습니다.")
     return recommender
 
 
@@ -44,13 +45,11 @@ def get_recommender_v2(request: Request) -> RecommenderV2:
     """
     recommender = getattr(request.app.state, "recommender_v2", None)
     if recommender is None:
-        raise HTTPException(status_code=500, detail="RecommenderV2 not initialized.")
+        raise AppException(ErrorCode.ARTIFACT_NOT_LOADED, "recommender_v2가 초기화되지 않았습니다.")
     return recommender
 
 
 # ------------------------------------------------------------------------------------------------
-
-
 def get_clustering_service_dep(request: Request) -> ClusteringTrainer:
     """
     서버 기동 시 app.state.clustering_service에 올려둔
@@ -59,7 +58,7 @@ def get_clustering_service_dep(request: Request) -> ClusteringTrainer:
     """
     clustering_service = getattr(request.app.state, "clustering_service", None)
     if clustering_service is None:
-        raise HTTPException(status_code=500, detail="ClusteringService not initialized.")
+        raise AppException(ErrorCode.CLUSTER_REFRESH_FAILED, "clustering_service가 초기화되지 않았습니다.")
     return clustering_service
 
 
@@ -70,5 +69,5 @@ def get_popularity_service_dep(request: Request) -> PopularityTrainer:
     """
     popularity_service = getattr(request.app.state, "popularity_service", None)
     if popularity_service is None:
-        raise HTTPException(status_code=500, detail="PopularityService not initialized.")
+        raise AppException(ErrorCode.POPULARITY_REFRESH_FAILED, "popularity_service가 초기화되지 않았습니다.")
     return popularity_service

@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from app.api.v2.deps import get_recommender_v1, get_recommender_v2
 
 # 외부 DTO
+from app.core.exception import AppException, ErrorCode
 from app.models.schemas import (
     RecommendByClusteringModelRequest,
     RecommendationResponse,
@@ -76,8 +77,7 @@ async def recommend(
 
         except Exception as e:
             logger.error("V1 rank 실패: %s", e)  # 추가
-            raise HTTPException(status_code=500,
-                                detail=f"recommendation failed: {str(e)}")
+            raise AppException(ErrorCode.FILTER_FAILED, str(e))
     # fallback try-exception 종료
 
     logger.info("최종 추천 결과 items=%s", items)

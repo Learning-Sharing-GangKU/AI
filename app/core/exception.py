@@ -15,6 +15,8 @@
 #   1. main.py → create_app()에서 register_exception_handlers(app) 호출
 #   2. 엔드포인트/서비스 → raise AppException(ErrorCode.XXX)
 #                          raise AppException(ErrorCode.XXX, "상세 메시지")
+#   3. 필터 서비스      → raise FilterNotAllowedError(field="title")
+#   4. 자동소개문 서비스 → raise AIGenerationError(cause=e)
 
 from __future__ import annotations
 
@@ -30,37 +32,49 @@ from fastapi.responses import JSONResponse
 # --------------------------------------------------
 class ErrorCode(str, Enum):
     # 추천
-    RECOMMENDATION_FAILED = "RECOMMENDATION_FAILED"        # 추천 처리 중 알 수 없는 오류
-    ARTIFACT_NOT_LOADED = "ARTIFACT_NOT_LOADED"          # 아티팩트 미로드 (v2 fallback)
-    NO_GATHERINGS = "NO_GATHERINGS"                # gatherings 없음 (coldstart 불가)
+    RECOMMENDATION_FAILED = "RECOMMENDATION_FAILED"     # 추천 처리 중 알 수 없는 오류
+    ARTIFACT_NOT_LOADED = "ARTIFACT_NOT_LOADED"       # 아티팩트 미로드 (v2 fallback)
+    NO_GATHERINGS = "NO_GATHERINGS"             # gatherings 없음 (coldstart 불가)
 
     # 필터
-    FILTER_FAILED = "FILTER_FAILED"                # 필터 처리 중 알 수 없는 오류
+    FILTER_FAILED = "FILTER_FAILED"             # 필터 처리 중 알 수 없는 오류
+    FILTER_NOT_ALLOWED = "FILTER_NOT_ALLOWED"        # 욕설/금칙어 탐지
+
+    # 자동소개문
+    AI_GENERATION_FAILED = "AI_GENERATION_FAILED"      # AI 소개문 생성 + fallback 모두 실패
 
     # 클러스터 배치
-    CLUSTER_REFRESH_FAILED = "CLUSTER_REFRESH_FAILED"       # 클러스터 재학습 실패
-    POPULARITY_REFRESH_FAILED = "POPULARITY_REFRESH_FAILED"    # 인기방 재계산 실패
-    EMPTY_USER_LIST = "EMPTY_USER_LIST"              # users 리스트 비어 있음
+    CLUSTER_REFRESH_FAILED = "CLUSTER_REFRESH_FAILED"    # 클러스터 재학습 실패
+    POPULARITY_REFRESH_FAILED = "POPULARITY_REFRESH_FAILED"  # 인기방 재계산 실패
+    EMPTY_USER_LIST = "EMPTY_USER_LIST"           # users 리스트 비어 있음
 
     # 공통
-    VALIDATION_ERROR = "VALIDATION_ERROR"             # 입력값 검증 실패 (422)
-    INTERNAL_ERROR = "INTERNAL_ERROR"               # 그 외 서버 내부 오류
+    VALIDATION_ERROR = "VALIDATION_ERROR"          # 입력값 검증 실패 (422)
+    INTERNAL_ERROR = "INTERNAL_ERROR"            # 그 외 서버 내부 오류
 
 
 # --------------------------------------------------
 # 기본 메시지 (message 생략 시 사용)
 # --------------------------------------------------
 _DEFAULT_MESSAGE: dict[ErrorCode, str] = {
+    # 추천
     ErrorCode.RECOMMENDATION_FAILED: "추천 처리 중 오류가 발생했습니다.",
     ErrorCode.ARTIFACT_NOT_LOADED: "모델 아티팩트가 로드되지 않았습니다.",
     ErrorCode.NO_GATHERINGS: "gatherings 목록이 비어 있습니다.",
 
+    # 필터
     ErrorCode.FILTER_FAILED: "필터 처리 중 오류가 발생했습니다.",
+    ErrorCode.FILTER_NOT_ALLOWED: "입력값에 부적절한 표현이 포함되어 있습니다.",
 
+    # 자동소개문
+    ErrorCode.AI_GENERATION_FAILED: "AI가 소개문을 생성하지 못했습니다. 다시 시도해주세요.",
+
+    # 클러스터 배치
     ErrorCode.CLUSTER_REFRESH_FAILED: "클러스터 재학습 중 오류가 발생했습니다.",
     ErrorCode.POPULARITY_REFRESH_FAILED: "인기방 재계산 중 오류가 발생했습니다.",
     ErrorCode.EMPTY_USER_LIST: "사용자 리스트가 비어 있습니다.",
 
+    # 공통
     ErrorCode.VALIDATION_ERROR: "입력값이 올바르지 않습니다.",
     ErrorCode.INTERNAL_ERROR: "서버 내부 오류가 발생했습니다.",
 }
@@ -69,16 +83,24 @@ _DEFAULT_MESSAGE: dict[ErrorCode, str] = {
 # HTTP 상태코드 매핑
 # --------------------------------------------------
 _STATUS_MAP: dict[ErrorCode, int] = {
+    # 추천
     ErrorCode.RECOMMENDATION_FAILED: 500,
     ErrorCode.ARTIFACT_NOT_LOADED: 503,
     ErrorCode.NO_GATHERINGS: 400,
 
+    # 필터
     ErrorCode.FILTER_FAILED: 500,
+    ErrorCode.FILTER_NOT_ALLOWED: 400,
 
+    # 자동소개문
+    ErrorCode.AI_GENERATION_FAILED: 500,
+
+    # 클러스터 배치
     ErrorCode.CLUSTER_REFRESH_FAILED: 500,
     ErrorCode.POPULARITY_REFRESH_FAILED: 500,
     ErrorCode.EMPTY_USER_LIST: 400,
 
+    # 공통
     ErrorCode.VALIDATION_ERROR: 422,
     ErrorCode.INTERNAL_ERROR: 500,
 }
@@ -113,6 +135,36 @@ class AppException(Exception):
         )
 
 
+class FilterNotAllowedError(AppException):
+    """
+    욕설/금칙어 탐지 시 발생하는 예외.
+
+    사용 예:
+        raise FilterNotAllowedError(field="title")
+    """
+    def __init__(self, field: str) -> None:
+        self.field = field
+        super().__init__(
+            code=ErrorCode.FILTER_NOT_ALLOWED,
+            message=f"[{field}] 입력값에 부적절한 표현이 포함되어 있습니다.",
+        )
+
+
+class AIGenerationError(AppException):
+    """
+    AI 소개문 생성 + Fallback 모두 실패 시 발생하는 예외.
+
+    사용 예:
+        raise AIGenerationError(cause=e)
+    """
+    def __init__(self, cause: Exception | None = None) -> None:
+        self.cause = cause
+        super().__init__(
+            code=ErrorCode.AI_GENERATION_FAILED,
+            message="AI가 소개문을 생성하지 못했습니다. 다시 시도해주세요.",
+        )
+
+
 # --------------------------------------------------
 # 공통 에러 응답 빌더
 # --------------------------------------------------
@@ -136,7 +188,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     main.py의 create_app()에서 호출.
 
     처리 범위:
-    1. AppException           → ErrorCode 기반 응답
+    1. AppException           → ErrorCode 기반 응답 (FilterNotAllowedError, AIGenerationError 포함)
     2. RequestValidationError → VALIDATION_ERROR 422 (Pydantic 검증 실패)
     3. HTTPException          → FastAPI 기본 HTTPException을 같은 형태로 래핑
     4. Exception (catch-all)  → INTERNAL_ERROR 500
@@ -148,8 +200,6 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
-        # Pydantic 에러 상세를 message에 담음
-        # exc.errors() 예시: [{"type": "missing", "loc": ["body", "text"], "msg": "Field required", ...}]
         return _error_response(
             status_code=422,
             code=ErrorCode.VALIDATION_ERROR.value,
@@ -158,7 +208,6 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
-        # raise HTTPException(status_code=404, detail="...") 형태를 같은 포맷으로 변환
         return _error_response(
             status_code=exc.status_code,
             code=f"HTTP_{exc.status_code}",

@@ -20,6 +20,7 @@ from typing import List, Dict, Iterable, Optional
 from datetime import datetime, timezone
 from app.core.config import settings
 
+from app.core.exception import AppException, ErrorCode
 from app.models.enums import Category
 
 from app.processors.recommand_preprocessing import to_user_meta, to_room_meta_list, clustering_request_usermeta
@@ -71,6 +72,12 @@ class Recommender:
 
         user = to_user_meta(req)
         rooms = to_room_meta_list(req.gatherings)
+
+        if rooms is None:
+            raise AppException(ErrorCode.NO_GATHERINGS, "v1 coldstart를 위한 gatherings가 없습니다.")
+
+        if user.user_age is None:
+            raise AppException(ErrorCode.RECOMMENDATION_FAILED, "user의 나이가 None.")
 
         # 콜드스타트 판정: 선호가 비어 있으면 콜드스타트
         # user_id가 존재하지 않을 떄, 콜드스타트

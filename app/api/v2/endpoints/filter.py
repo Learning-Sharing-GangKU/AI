@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 
 # 외부 DTO
+from app.core.exception import AppException, ErrorCode
 from app.models.schemas import FilterCheckRequest, FilterCheckResponse
 
 from app.api.v1.deps import get_curse_model_dep, get_xlmr_client_dep
@@ -42,5 +43,4 @@ def filter_check(
         return FilterService(curse=curse, xlmr=xlmr).check(req.text)
     except Exception as e:
         # 내부 오류는 500으로 래핑
-        raise HTTPException(status_code=500,
-                            detail=f"filtering failed: {str(e)}")
+        raise AppException(ErrorCode.FILTER_FAILED, str(e))

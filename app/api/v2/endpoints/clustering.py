@@ -22,6 +22,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.core.exception import AppException, ErrorCode
 from app.models.schemas import (
     ClusterRefreshRequest,
     ClusterRefreshResponse,
@@ -68,24 +69,14 @@ def refresh_clustering(
     """
     try:
         if not req.users:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="사용자 리스트가 비어 있습니다. 최소 1명 이상의 사용자 정보가 필요합니다.",
-            )
+            raise AppException(ErrorCode.EMPTY_USER_LIST)
 
         result: ClusterRefreshResponse = clustering_service.refresh_clusters(req)
         return result
 
-    except HTTPException:
-        # 이미 위에서 HTTPException을 발생시킨 경우 그대로 전달합니다.
-        raise
-
     except Exception as e:
         # 예기치 못한 예외는 500 에러로 래핑합니다.
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"cluster refresh failed: {e}",
-        )
+        raise AppException(ErrorCode.CLUSTER_REFRESH_FAILED, str(e))
 
 
 # http://127.0.0.1:8000/api/ai/v2/refresh/popularity
@@ -126,7 +117,4 @@ def refresh_popularity(
 
     except Exception as e:
         # 예기치 못한 예외는 500 에러로 래핑합니다.
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"popularity refresh failed: {e}",
-        )
+        raise AppException(ErrorCode.CLUSTER_REFRESH_FAILED, str(e))
