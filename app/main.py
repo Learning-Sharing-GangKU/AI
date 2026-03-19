@@ -12,6 +12,8 @@ from huggingface_hub import snapshot_download
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.logging import setup_logging, RequestResponseLoggerMiddleware
+from app.core.exception import register_exception_handlers
+
 
 # 서비스/클라이언트
 from app.filters.v1.curse_detection_model import LocalCurseModel
@@ -123,6 +125,7 @@ def create_app() -> FastAPI:
     _init_logging(app)
     _init_cors(app)
     _init_routes(app)
+    register_exception_handlers(app)
 
     @app.on_event("startup")
     def startup_event() -> None:

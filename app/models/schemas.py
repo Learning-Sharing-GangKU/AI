@@ -126,7 +126,7 @@ class ClusterRefreshResponse(BaseModel):
     """
     클러스터 재학습 결과를 요약해서 반환하는 응답 모델입니다.
     - 실서비스용으로는 굳이 안 써도 되지만,
-    운영/디버깅 시 현재 모델 상태를 확인하기 위해 유용합니다.
+    현재 모델 상태를 확인하기 위함.
     """
     n_users: int = Field(..., description="이번 배치에 사용된 사용자 수")
     n_clusters: int = Field(..., description="실제로 사용된 군집 수(K)")

@@ -77,7 +77,7 @@ async def recommend(
 
         except Exception as e:
             logger.error("V1 rank 실패: %s", e)  # 추가
-            raise AppException(ErrorCode.FILTER_FAILED, str(e))
+            raise AppException(ErrorCode.RECOMMENDATION_FAILED, str(e))
     # fallback try-exception 종료
 
     logger.info("최종 추천 결과 items=%s", items)

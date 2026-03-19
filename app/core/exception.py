@@ -203,7 +203,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         return _error_response(
             status_code=422,
             code=ErrorCode.VALIDATION_ERROR.value,
-            message=str(exc.errors()),
+            message=str("pylance 검증 오류"),
         )
 
     @app.exception_handler(HTTPException)

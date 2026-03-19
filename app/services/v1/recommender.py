@@ -76,14 +76,14 @@ class Recommender:
         if rooms is None:
             raise AppException(ErrorCode.NO_GATHERINGS, "v1 coldstart를 위한 gatherings가 없습니다.")
 
-        if user.user_age is None:
-            raise AppException(ErrorCode.RECOMMENDATION_FAILED, "user의 나이가 None.")
-
         # 콜드스타트 판정: 선호가 비어 있으면 콜드스타트
         # user_id가 존재하지 않을 떄, 콜드스타트
         if getattr(user, "user_id", None) is None:
             ranked = self._rank_coldstart(rooms, now)
             return ranked
+
+        if user.user_age is None:
+            raise AppException(ErrorCode.VALIDATION_ERROR, "user의 나이가 None.")
 
         # 비콜드스타트: 카테고리 유사도(B안, 0/1)만 사용
         scored = []
