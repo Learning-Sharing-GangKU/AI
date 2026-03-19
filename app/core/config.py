@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     XLMR_RETRIES: int | None = None
     XLMR_CB_COOLDOWN_SEC: int | None = None
 
+    # --- FILTER PREPROCESSING ---
+    FILTER_LENGTH_CUTOFF: int = 20
+    FILTER_CURSE_THRESHOLD: float = 0.6
+    FILTER_XLMR_THRESHOLD: float = 0.8
+
     # --- CORS/로깅 ---
     CORS_ORIGINS: List[str] = Field(default_factory=list)
     LOG_LEVEL: str = Field(default="INFO")
@@ -50,7 +55,7 @@ class Settings(BaseSettings):
     RECOMMENDER_N_CLUSTERS: int | None = None
     RECOMMENDER_SVD_DIM: int | None = None
 
-    # 아티팩트 dir
+    # 아티팩트 DIRECTORY
     CLUSTER_ARTIFACT_DIR: Path = Path("app/cluster/artifacts/user_clustering")
     POPULARITY_ARTIFACT_DIR: Path = Path("app/cluster/artifacts/popularity")
 

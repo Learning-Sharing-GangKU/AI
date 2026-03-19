@@ -69,10 +69,10 @@ class ClusteringTrainer:
         request: ClusterRefreshRequest,
     ) -> ClusterRefreshResponse:
         """
-        배치 엔드포인트에서 호출할 메인 메서드입니다.
+        배치 엔드포인트에서 호출할 메인 메서드.
         1) 요청으로 받은 사용자 리스트를 numpy 행렬로 변환하고
-        2) SVD(카테고리) + StandardScaler(사용자 학번, 나이, 참가횟수) + KMeans를 학습한 뒤
-        3) 결과를 디스크에 저장하고
+        2) SVD(카테고리) + StandardScaler(사용자 학번, 나이, 참가횟수) + KMeans를 학습
+        3) 결과 디스크에 저장
         4) 요약 정보를 ClusterRefreshResult로 반환합니다.
         """
 
@@ -81,7 +81,7 @@ class ClusteringTrainer:
             # 일말의 예외처리
             raise ValueError("사용자 리스트가 비어 있습니다. 최소 1명 이상 필요합니다.")
 
-        # 1. 카테고리 vocab 생성 -> 다시 체크
+        # 1. 카테고리 vocab 생성
         category_vocab = self._build_category_vocab(users)
 
         # 2. multi-hot 행렬 생성 (n_users x n_categories)
@@ -117,8 +117,8 @@ class ClusteringTrainer:
         # user_clustering안에 어떤 clustering안에 어떤 user가 있는지 저장 -> gatherings_popularity에서 용이하게 쓸 수 있음
         user_clusters: dict[str, int] = {}
         for u, cid in zip(users, labels):
-            if u.user_id is not None:
-                user_clusters[str(u.user_id)] = int(cid)
+            if u.userId is not None:
+                user_clusters[str(u.userId)] = int(cid)
 
         user_clusters_path = self.artifacts_dir / "user_clusters.json"
         with user_clusters_path.open("w", encoding="utf-8") as f:
@@ -155,7 +155,7 @@ class ClusteringTrainer:
         """
         vocab_set = set()
         for u in users:
-            for cat in u.preferred_categories:
+            for cat in u.preferredCategories:
                 if cat is not None:
                     vocab_set.add(cat)
         # 정렬해서 deterministic한 순서를 보장합니다.
@@ -181,7 +181,7 @@ class ClusteringTrainer:
         multi_hot = np.zeros((n_users, n_cats), dtype=np.float32)
 
         for i, u in enumerate(users):
-            for cat in u.preferred_categories:
+            for cat in u.preferredCategories:
                 # Enum → 문자열로 정규화
                 name = Category._cat_name(cat)  # "음악", "게임", "스터디" 같은 값
                 idx = cat_index.get(name)
@@ -237,9 +237,9 @@ class ClusteringTrainer:
         mat = np.zeros((n_users, 3), dtype=np.float32)
 
         for i, u in enumerate(users):
-            age = u.user_age if u.user_age is not None else 0
-            enroll = u.user_enroll if u.user_enroll is not None else 0
-            join_cnt = u.user_join_count if u.user_join_count is not None else 0
+            age = u.age if u.age is not None else 0
+            enroll = u.enrollNumber if u.enrollNumber is not None else 0
+            join_cnt = u.userJoinCount if u.userJoinCount is not None else 0
 
             mat[i, 0] = age
             mat[i, 1] = enroll

@@ -75,7 +75,7 @@ async def recommend(req: RecommendByCategoryRequest,
 
         # 4) DTO 변환: RecommendationItem 리스트로 변환
         # models/schemas 형식으로 변환한후 외부와 통신
-        return RecommendationResponse(items=items)
+        return RecommendationResponse(gatheringsId=items)
 
     except HTTPException:
         # HTTPException은 그대로 전달

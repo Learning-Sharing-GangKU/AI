@@ -22,11 +22,10 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.core.exception import AppException, ErrorCode
 from app.models.schemas import (
     ClusterRefreshRequest,
     ClusterRefreshResponse,
-
-    UserActionlog,
     PopularityRefreshRequest)
 
 
@@ -50,9 +49,9 @@ router = APIRouter(
 
 # http://127.0.0.1:8000/api/ai/v2/refresh/clustering
 @router.post("/clustering", response_model=ClusterRefreshResponse)
-def filter_check(
+def refresh_clustering(
     req: ClusterRefreshRequest,
-    service: ClusteringTrainer = Depends(get_clustering_service_dep)
+    clustering_service: ClusteringTrainer = Depends(get_clustering_service_dep)
 ) -> ClusterRefreshResponse:
     """
     [배치용 엔드포인트]
@@ -70,24 +69,14 @@ def filter_check(
     """
     try:
         if not req.users:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="사용자 리스트가 비어 있습니다. 최소 1명 이상의 사용자 정보가 필요합니다.",
-            )
+            raise AppException(ErrorCode.EMPTY_USER_LIST)
 
-        result: ClusterRefreshResponse = service.refresh_clusters(req)
+        result: ClusterRefreshResponse = clustering_service.refresh_clusters(req)
         return result
-
-    except HTTPException:
-        # 이미 위에서 HTTPException을 발생시킨 경우 그대로 전달합니다.
-        raise
 
     except Exception as e:
         # 예기치 못한 예외는 500 에러로 래핑합니다.
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"cluster refresh failed: {e}",
-        )
+        raise AppException(ErrorCode.CLUSTER_REFRESH_FAILED, str(e))
 
 
 # http://127.0.0.1:8000/api/ai/v2/refresh/popularity
@@ -120,7 +109,7 @@ def refresh_popularity(
         # log_list가 비어 있는 경우, 단순히 아무 것도 하지 않고 성공으로 처리할지
         # 400 에러로 처리할지는 정책에 따라 결정하시면 됩니다.
         # 여기서는 "비어 있으면 할 일이 없다"라고 보고 조용히 반환하는 쪽으로 가정하겠습니다.
-        if not req.log_list:
+        if not req.logList:
             return
 
         service.refresh_popularity(req)
@@ -128,7 +117,4 @@ def refresh_popularity(
 
     except Exception as e:
         # 예기치 못한 예외는 500 에러로 래핑합니다.
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"popularity refresh failed: {e}",
-        )
+        raise AppException(ErrorCode.CLUSTER_REFRESH_FAILED, str(e))

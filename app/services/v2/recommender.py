@@ -21,18 +21,26 @@
 
 from __future__ import annotations
 from pathlib import Path
+import logging
 import joblib
 import json
 import numpy as np
 
-from typing import List, Dict, Iterable, Optional
-from datetime import datetime, timezone
+from typing import List, Dict, Optional
 
 from app.core.config import settings
+
+from app.models.schemas import (
+    RecommendByClusteringModelRequest,
+)
 
 from app.models.domain import RoomRecommandUserMetaV2
 
 from app.models.enums import Category
+
+from app.processors.recommand_preprocessing import clustering_request_usermeta
+
+logger = logging.getLogger(__name__)
 
 
 class Recommender:
@@ -41,12 +49,8 @@ class Recommender:
         app/cluster/gatherings_popularity.py
         app/cluster/user_clustering.py
         그 전에 생성된 모델을 불러와 단순하게 해당 cluster에 대한 추천만 해주면 되는거다.
-
         """
-        if artifacts_dir is None:
-            artifacts_dir = Path(settings.CLUSTER_ARTIFACT_DIR)
-        else:
-            artifacts_dir = Path(artifacts_dir)
+        artifacts_dir = Path(artifacts_dir or settings.CLUSTER_ARTIFACT_DIR)
 
         self.artifacts_dir: Path = artifacts_dir
 
@@ -92,20 +96,30 @@ class Recommender:
     # -------------------------------
     def rank(
             self,
-            user=RoomRecommandUserMetaV2,
+            req: RecommendByClusteringModelRequest,
             limit: int = settings.RECOMMANDS_LIMIT,
-            now: Optional[datetime] = None,
     ) -> Optional[List[int]]:
+
+        user = clustering_request_usermeta(req)
 
         if not getattr(self, "artifacts_loaded", False):
             # fallback 정책(1)
             # 아티팩트 자체가 아직 없으면 무조건 v1로 넘김
+            logger.warning(
+                "V2 rank → fallback(1): 아티팩트 미로드 user_id=%s", user.user_id
+            )
             return None
 
         if user.user_id is None or not self.cluster_popularity:
             # fallback 정책(2)
             # - 비로그인 유저 (user_id 없음)
             # - popularity 아티팩트 없음/비어 있음
+            logger.warning(
+                "V2 rank → fallback(2): user_id=%s artifacts_loaded=%s cluster_popularity_empty=%s",
+                user.user_id,
+                self.artifacts_loaded,
+                not self.cluster_popularity,
+            )
             return None
 
         cluster_id = self.predict_cluster(user)
@@ -124,7 +138,6 @@ class Recommender:
     # -------------------------------
     # public API : cluster 예측, RecommendByClusteringModelRequest cluster_id 없을 경우
     # -------------------------------
-
     def predict_cluster(self, req: RoomRecommandUserMetaV2) -> int:
         # 1. numeric feature
         age = req.user_age or 0

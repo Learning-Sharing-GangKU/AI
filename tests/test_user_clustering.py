@@ -39,7 +39,7 @@ def _make_user(
     return RecommendByClusteringModelRequest(
         age=user_age,
         enrollNumber=user_enroll,
-        user_join_count=user_join_count,
+        userJoinCount=user_join_count,
         preferredCategories=preferred_categories,
     )
 

@@ -89,19 +89,19 @@ class PopularityTrainer:
         # 1) cluster_id별 → room_id → count 집계용 딕셔너리
         cluster_room_scores: Dict[int, Dict[int, float]] = {}
 
-        for log in request.log_list:
-            if log.user_id is None:
+        for log in request.logList:
+            if log.userId is None:
                 # 익명 유저거나 cluster 정보 없는 경우는 스킵하거나 별도 처리
                 continue
             # log.status로 참여/탈퇴 구분해서 참여 -> 1.0 증가, 클릭 -> 0.1 증가
 
             # user_id -> cluster_id 매핑 가져오기
-            cluster_id = self.user_clusters.get(str(log.user_id))
+            cluster_id = self.user_clusters.get(str(log.userId))
             if cluster_id is None:
                 # 아직 군집이 할당되지 않은 유저면 스킵
                 continue
 
-            room_id = log.room_id
+            room_id = log.gatheringId
 
             # 이벤트 타입별 가중치
             if log.status == UserStatus.JOIN:      # 실제 Enum 이름에 맞게 수정

@@ -5,13 +5,16 @@
 # - 반환을 {"score": float, "label": int} 표준 형식으로 통일합니다.
 
 from __future__ import annotations
+import logging
 
-import os
 import numpy as np
 from typing import Dict, Any, Optional, List
 from ..http import HttpCaller
 
 from app.core.config import settings
+
+
+logger = logging.getLogger(__name__)
 
 
 class XLMRClient:
@@ -43,13 +46,9 @@ class XLMRClient:
         base_url = settings.XLMR_BASE_URL
         if not base_url:
             raise RuntimeError("XLMR_BASE_URL is not set")
-        path = settings.XLMR_PATH
         api_key = settings.XLMR_API_KEY
-
-        timeout = float(settings.XLMR_TIMEOUT)
-        retries = int(settings.XLMR_RETRIES)
-        cb = int(settings.XLMR_CB_COOLDOWN_SEC)
-        return cls(base_url=base_url, api_key=api_key, timeout=timeout, retries=retries, cb_cooldown_sec=cb, path=path)
+        path = settings.XLMR_PATH
+        return cls(base_url=base_url, api_key=api_key, path=path)
 
     # def predict(self, text: str) -> Dict[str, Any]:
     def predict(self, text: str):
@@ -76,10 +75,13 @@ class XLMRClient:
             return {"score": 0.0, "label": 0}
 
         data = np.array(resp.json()).flatten().tolist()
+        logger.warning(
+            "xlmr 실제 data=%s", data
+        )
         toxic_entry = self._extract_toxic_entry(data)
         toxic_score: Optional[float] = (float(toxic_entry["score"]) if toxic_entry and "score" in toxic_entry else None)
 
-        return toxic_score
+        return toxic_score if toxic_score is not None else 0.0
 
     @staticmethod
     def _extract_toxic_entry(data: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
