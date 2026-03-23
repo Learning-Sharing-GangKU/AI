@@ -1,3 +1,4 @@
+import logging
 # app/services/v1/autowrite.py
 from datetime import datetime
 from app.callout.autowrite.providers import Provider
@@ -8,6 +9,7 @@ from app.core.exceptions import AIGenerationError
 from types import AsyncGeneratorType
 import inspect
 
+logger = logging.getLogger(__name__)
 
 class FallbackWriter:
     """AI 호출 실패 시 기본 안내문 생성"""
@@ -70,13 +72,13 @@ class AutoWriteService:
         - 실패 시 fallback 템플릿 사용
         """
 
-        print("[DEBUG] generate_intro() called")
+        logger.debug("generate_intro() called")
         info = vars(req)
 
         try:
             result = self.provider.generate_intro(info)
 
-            print("[DEBUG] provider.generate_intro() 시작")
+            logger.debug("provider.generate_intro() 시작")
             if inspect.isawaitable(result):
                 text = await result
             elif inspect.isasyncgen(result):
@@ -88,7 +90,7 @@ class AutoWriteService:
                 text = str(result)
 
         except Exception as ai_err:
-            print(f"[WARN] AI 생성 실패, fallback 시도: {ai_err}")
+            logger.warning(f"AI 생성 실패, fallback 시도: {ai_err}")
             try:
                 text = self.fallback_writer.render_meeting_template(req)
             except Exception as fb_err:
@@ -105,22 +107,22 @@ class AutoWriteService:
 
     async def stream_intro(self, req: AutoWrite):
         """AI 스트리밍 모드"""
-        print("[DEBUG] stream_intro() called")
+        logger.debug("stream_intro() called")
         info = vars(req)
 
-        print("[DEBUG] provider.stream_intro() 시작")
+        logger.debug("provider.stream_intro() 시작")
 
         gen = self.provider.stream_intro(info)
 
-        print("[DEBUG] provider.stream_intro() type:", type(gen))
+        logger.debug(f"provider.stream_intro() type: {type(gen)}")
 
         if not isinstance(gen, AsyncGeneratorType):
-            print("[WARN] provider.stream_intro() returned coroutine instead of generator — awaiting it once.")
+            logger.warning("provider.stream_intro() returned coroutine instead of generator — awaiting it once.")
             result = await gen
-            print("[WARN] stream result (non-streaming):", result[:100] if result else "empty")
+            logger.warning(f"stream result (non-streaming): {result[:100] if result else 'empty'}")
             yield result or ""
             return
 
         async for chunk in gen:
-            print("[DEBUG] chunk:", chunk[:30])
+            logger.debug(f"chunk: {chunk[:30]}")
             yield chunk

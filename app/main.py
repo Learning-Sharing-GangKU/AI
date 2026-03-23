@@ -13,7 +13,6 @@ from huggingface_hub import snapshot_download
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.logging import setup_logging, RequestResponseLoggerMiddleware
-from app.core.exceptions import FilterNotAllowedError, AIGenerationError
 
 # 서비스/클라이언트
 from app.filters.v1.curse_detection_model import LocalCurseModel
@@ -153,30 +152,6 @@ def create_app() -> FastAPI:
         _init_recommenders(app)
         _init_batch_services(app)
         _init_autowrite_service(app)
-
-    @app.exception_handler(FilterNotAllowedError)
-    async def filter_not_allowed_handler(request: Request, exc: FilterNotAllowedError):
-        return JSONResponse(
-            status_code=400,
-            content={
-                "error": {
-                    "code": "FILTER_NOT_ALLOWED",
-                    "message": f"[{exc.field}] 입력값에 부적절한 표현이 포함되어 있습니다."
-                }
-            }
-        )
-
-    @app.exception_handler(AIGenerationError)
-    async def ai_generation_error_handler(request: Request, exc: AIGenerationError):
-        return JSONResponse(
-            status_code=500,
-            content={
-                "error": {
-                    "code": "AI_GENERATION_FAILED",
-                    "message": str(exc)
-                }
-            }
-        )
 
     @app.get("/health")
     def health_check():
