@@ -1,16 +1,15 @@
+import logging
 # app/services/v1/autowrite.py
 from datetime import datetime
-from app.callout.autowrite.router import Router
+from app.callout.autowrite.providers import Provider
 from app.models.schemas import AutoWriteResponse
 from app.models.domain import AutoWrite
 from app.processors.autowrite_postprocessing import safe_strip, clamp_length
+from app.core.exception import AIGenerationError
 from types import AsyncGeneratorType
-from dotenv import load_dotenv
-import os
 import inspect
 
-env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
-load_dotenv(env_path)
+logger = logging.getLogger(__name__)
 
 
 class FallbackWriter:
@@ -63,6 +62,10 @@ class FallbackWriter:
 class AutoWriteService:
     """AI 호출 및 실패 시 Fallback 템플릿 반환."""
 
+    def __init__(self, provider: Provider) -> None:
+        self.provider = provider
+        self.fallback_writer = FallbackWriter()
+
     async def generate_intro(self, req: AutoWrite) -> AutoWriteResponse:
         """
         모임 소개문 자동 생성.
@@ -70,16 +73,13 @@ class AutoWriteService:
         - 실패 시 fallback 템플릿 사용
         """
 
-        print("[DEBUG] generate_intro() called")
+        logger.debug("generate_intro() called")
         info = vars(req)
-        router = Router()
-        provider = router.get_provider()
-        fallback_writer = FallbackWriter()
 
         try:
-            result = provider.generate_intro(info)
+            result = self.provider.generate_intro(info)
 
-            print("[DEBUG] provider.generate_intro() 시작")
+            logger.debug("provider.generate_intro() 시작")
             if inspect.isawaitable(result):
                 text = await result
             elif inspect.isasyncgen(result):
@@ -90,8 +90,12 @@ class AutoWriteService:
             else:
                 text = str(result)
 
-        except Exception:
-            text = fallback_writer.render_meeting_template(req)
+        except Exception as ai_err:
+            logger.warning(f"AI 생성 실패, fallback 시도: {ai_err}")
+            try:
+                text = self.fallback_writer.render_meeting_template(req)
+            except Exception as fb_err:
+                raise AIGenerationError(cause=fb_err) from fb_err
 
         cleaned = safe_strip(text)
         max_chars = getattr(req, "max_chars", 800)
@@ -104,25 +108,22 @@ class AutoWriteService:
 
     async def stream_intro(self, req: AutoWrite):
         """AI 스트리밍 모드"""
-        print("[DEBUG] stream_intro() called")
+        logger.debug("stream_intro() called")
         info = vars(req)
 
-        router = Router()
-        provider = router.get_provider()
+        logger.debug("provider.stream_intro() 시작")
 
-        print("[DEBUG] provider.stream_intro() 시작")
+        gen = self.provider.stream_intro(info)
 
-        gen = provider.stream_intro(info)
-
-        print("[DEBUG] provider.stream_intro() type:", type(gen))
+        logger.debug(f"provider.stream_intro() type: {type(gen)}")
 
         if not isinstance(gen, AsyncGeneratorType):
-            print("[WARN] provider.stream_intro() returned coroutine instead of generator — awaiting it once.")
+            logger.warning("provider.stream_intro() returned coroutine instead of generator — awaiting it once.")
             result = await gen
-            print("[WARN] stream result (non-streaming):", result[:100] if result else "empty")
+            logger.warning(f"stream result (non-streaming): {result[:100] if result else 'empty'}")
             yield result or ""
             return
 
         async for chunk in gen:
-            print("[DEBUG] chunk:", chunk[:30])
+            logger.debug(f"chunk: {chunk[:30]}")
             yield chunk
