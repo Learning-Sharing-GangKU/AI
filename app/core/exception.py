@@ -47,6 +47,7 @@ class ErrorCode(str, Enum):
     CLUSTER_REFRESH_FAILED = "CLUSTER_REFRESH_FAILED"    # 클러스터 재학습 실패
     POPULARITY_REFRESH_FAILED = "POPULARITY_REFRESH_FAILED"  # 인기방 재계산 실패
     EMPTY_USER_LIST = "EMPTY_USER_LIST"           # users 리스트 비어 있음
+    INVALID_REQUEST = "FAIL_GET_LOGLIST"
 
     # 공통
     VALIDATION_ERROR = "VALIDATION_ERROR"          # 입력값 검증 실패 (422)
@@ -73,6 +74,7 @@ _DEFAULT_MESSAGE: dict[ErrorCode, str] = {
     ErrorCode.CLUSTER_REFRESH_FAILED: "클러스터 재학습 중 오류가 발생했습니다.",
     ErrorCode.POPULARITY_REFRESH_FAILED: "인기방 재계산 중 오류가 발생했습니다.",
     ErrorCode.EMPTY_USER_LIST: "사용자 리스트가 비어 있습니다.",
+    ErrorCode.INVALID_REQUEST: "사용자 액션 로그 리스트가 비어 있습니다.",
 
     # 공통
     ErrorCode.VALIDATION_ERROR: "입력값이 올바르지 않습니다.",
@@ -99,6 +101,7 @@ _STATUS_MAP: dict[ErrorCode, int] = {
     ErrorCode.CLUSTER_REFRESH_FAILED: 500,
     ErrorCode.POPULARITY_REFRESH_FAILED: 500,
     ErrorCode.EMPTY_USER_LIST: 400,
+    ErrorCode.INVALID_REQUEST: 400,
 
     # 공통
     ErrorCode.VALIDATION_ERROR: 422,

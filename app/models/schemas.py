@@ -5,7 +5,7 @@
 # 사용처: app/api/v1/endpoints/* (컨트롤러에서 직접 import)
 
 from typing import List, Optional, Literal, Dict
-from pydantic import BaseModel, Field, root_validator
+from pydantic import BaseModel, Field, field_validator, root_validator
 from datetime import datetime
 
 from app.models.enums import Category, UserStatus
@@ -22,6 +22,27 @@ class GatheringIn(BaseModel):
     capacity: int = Field(..., description="콜드스타트에서 사용하기 위한 용도, 인기순용")
     participantCount: int = Field(..., description="콜드스타트에서 사용하기 위한 용도, 인기순용")
     createdAt: datetime = Field(..., description="콜드스타트에서 사용하기 위한 용도, 최신순용")
+
+    @field_validator("createdAt", mode="before")
+    @classmethod
+    def parse_created_at(cls, v):
+        if isinstance(v, datetime):
+            return v
+
+        if isinstance(v, str):
+            return datetime.fromisoformat(v)
+
+        if isinstance(v, (list, tuple)):
+            if len(v) < 6:
+                raise ValueError("createdAt 배열 길이가 너무 짧습니다.")
+
+            year, month, day, hour, minute, second = v[:6]
+            nano = v[6] if len(v) > 6 else 0
+            microsecond = int(nano / 1000)
+
+            return datetime(year, month, day, hour, minute, second, microsecond)
+
+        raise ValueError("createdAt은 ISO datetime 문자열 또는 LocalDateTime 배열이어야 합니다.")
 
 
 # ----- 추천 API request v1-----

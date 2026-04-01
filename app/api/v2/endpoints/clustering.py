@@ -26,7 +26,8 @@ from app.core.exception import AppException, ErrorCode
 from app.models.schemas import (
     ClusterRefreshRequest,
     ClusterRefreshResponse,
-    PopularityRefreshRequest)
+    PopularityRefreshRequest,
+    PopularityRefreshResponse)
 
 
 from app.cluster.user_clustering import ClusteringTrainer
@@ -80,11 +81,11 @@ def refresh_clustering(
 
 
 # http://127.0.0.1:8000/api/ai/v2/refresh/popularity
-@router.post("/popularity", status_code=204)    # 인기 방 테이블 재계산
+@router.post("/popularity", response_model=PopularityRefreshResponse)  # 인기 방 테이블 재계산
 def refresh_popularity(
     req: PopularityRefreshRequest,
     service: PopularityTrainer = Depends(get_popularity_service_dep)
-) -> None:
+) -> PopularityRefreshResponse:
     """
     [배치용 엔드포인트]
 
@@ -105,15 +106,13 @@ def refresh_popularity(
         - 반환 바디는 없고, 성공 시 HTTP 204 응답만 보냅니다.
         (배치 스케줄러 입장에서는 '성공/실패'만 확인하면 되기 때문에 이렇게 설계했습니다.)
     """
-    try:
-        # log_list가 비어 있는 경우, 단순히 아무 것도 하지 않고 성공으로 처리할지
-        # 400 에러로 처리할지는 정책에 따라 결정하시면 됩니다.
-        # 여기서는 "비어 있으면 할 일이 없다"라고 보고 조용히 반환하는 쪽으로 가정하겠습니다.
-        if not req.logList:
-            return
 
-        service.refresh_popularity(req)
-        # 반환값이 없으므로, FastAPI가 자동으로 204 No Content를 응답합니다.
+    try:
+        if not req.logList:
+            raise AppException(ErrorCode.INVALID_REQUEST, "logList가 비어있습니다.")
+
+        result: PopularityRefreshResponse = service.refresh_popularity(req)
+        return result
 
     except Exception as e:
         # 예기치 못한 예외는 500 에러로 래핑합니다.

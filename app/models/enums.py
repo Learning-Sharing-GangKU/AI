@@ -44,5 +44,5 @@ class UserStatus(StrEnum):
     """
     백에서 로그 받아 올 때, 해당 로그가 참여를 해서 생성된 로그인지, 클릭을 해서 생성된 로그인지
     """
-    JOIN = "join"
-    CLICK = "click"
+    JOIN = "JOIN"
+    CLICK = "CLICK"

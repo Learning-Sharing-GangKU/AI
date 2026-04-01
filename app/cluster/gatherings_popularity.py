@@ -130,3 +130,10 @@ class PopularityTrainer:
         # JSON 저장
         with self.popularity_path.open("w", encoding="utf-8") as f:
             json.dump(cluster_popularity, f, ensure_ascii=False, indent=2)
+
+            return PopularityRefreshResponse(
+                total_logs=len(request.logList),
+                n_clusters=len(cluster_popularity),
+                top_n=max((len(v) for v in cluster_popularity.values()), default=0),
+                cluster_popularity={int(k): v for k, v in cluster_popularity.items()}
+            )
