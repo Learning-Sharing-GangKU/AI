@@ -7,9 +7,10 @@ from app.services.v1.autowrite import AutoWriteService
 from app.processors.autowrite_preprocessing import mapping
 from app.filters.v1.curse_detection_model import LocalCurseModel
 from app.api.v1.deps import get_curse_model_dep
+from app.callout.autowrite.providers import Provider
 
 router = APIRouter(
-    prefix="/gatherings"
+    prefix=""
 )
 
 """
@@ -80,7 +81,8 @@ async def generate_intro(
         )
 
     # 2) generate_intro() 실행
-    service = AutoWriteService()
+    provider = Provider()
+    service = AutoWriteService(provider=provider)
 
     try:
         response = await service.generate_intro(domain_input)  # AutoWriteResponse 반환
