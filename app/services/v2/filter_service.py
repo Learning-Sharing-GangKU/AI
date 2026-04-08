@@ -11,6 +11,7 @@
 #   - app/processors/filter_postprocessing.py : FilterDecision, to_filter_check_response
 
 from __future__ import annotations
+import logging
 from typing import Optional
 
 from app.processors.filter_preprocessing import (
@@ -26,6 +27,9 @@ from app.callout.filter.xlmr_client import XLMRClient
 from app.processors.filter_postprocessing import FilterDecision, to_filter_check_response
 
 from app.models.schemas import FilterCheckResponse
+
+
+logger = logging.getLogger(__name__)
 
 
 class FilterService:
@@ -96,6 +100,13 @@ class FilterService:
             route=policy.route,
             threshold=policy.threshold,
             blacklist=[],
+        )
+
+        logger.warning(
+            "fitler → fallback(2): route=%s score=%s allowed=%s",
+            decision.route,
+            decision.score,
+            decision.allowed
         )
 
         return to_filter_check_response(decision)
