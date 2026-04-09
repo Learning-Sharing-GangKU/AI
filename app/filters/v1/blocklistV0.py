@@ -1,5 +1,5 @@
 # flake8: noqa
-# app/filters/v1/blocklist.py
+# app/filters/v1/blocklistV0.py
 # 역할:
 #   - blacklist.txt(카테고리 주석 포함)를 읽어, 금칙어 매칭을 수행하는 모듈입니다.
 #   - TextPreprocessor(전처리) 이후의 문자열을 입력으로 받아 scan()을 통해 매칭 결과를 반환합니다.
@@ -27,13 +27,13 @@ import os
 import re
 import threading
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Pattern, Tuple
+from typing import Dict, List, Optional, Pattern
 
 # 기본 경로(서비스 루트 기준). 필요 시 환경변수/설정으로 주입 가능.
 _DEFAULT_BLACKLIST_PATH = os.getenv(
     "BLACKLIST_PATH",
-    os.path.join(os.path.dirname(__file__), "data", "blacklist.txt"),
-    )
+    "app/filters/v1/blacklist.txt",
+)
 
 
 @dataclass
@@ -81,7 +81,7 @@ class BlacklistMatcher:
         self._mtime: Optional[float] = None
 
         # 내부 상태
-        self._categories: Dict[str, List[str]] = {}     # 카테고리 -> [단어...]
+        self.curse_categories: Dict[str, List[str]] = {}     # 카테고리 -> [단어...]
         self._patterns: Dict[str, Pattern[str]] = {}    # 카테고리 -> 컴파일된 정규식
         # self._patterns -> 단순하게 for문만 돌리면 너무 느리다 -> 정규식으로 컴파일하고 matching시 훨씬 빠른 결과를 얻을 수 있음
 
@@ -89,12 +89,12 @@ class BlacklistMatcher:
 
     # ---------------- 내부: 로드/빌드 ----------------
     def _load_and_build(self) -> None:
-        """blacklist.txt를 읽고 카테고리별 단어 목록과 정규식을 빌드합니다."""
+        """blacklist.txt를 읽고 카테고리별 단어 목록과 정규식을 빌드합니다. -> 속도 더 빠름"""
         with self._lock:
             words_by_cat = self._parse_file(self._path)
             patterns = self._compile_patterns(words_by_cat)
 
-            self._categories = words_by_cat
+            self.curse_categories = words_by_cat
             self._patterns = patterns
             try:
                 self._mtime = os.path.getmtime(self._path)
@@ -149,3 +149,58 @@ class BlacklistMatcher:
                 words_by_cat.setdefault(current_cat, []).append(line)
 
         return words_by_cat
+
+    @staticmethod
+    def _normalize_category_header(line: str) -> str:
+        """
+        '## 1. Slur / ...' 같은 헤더 라인을 카테고리 키로 정규화합니다.
+        - 선행 '#' 제거, '숫자.' 프리픽스 제거, 공백 정리
+        """
+        s = line.lstrip("#").strip()
+        s = re.sub(r"^[0-9]+\.\s*", "", s)  # '1. ' 제거
+        s = re.sub(r"\s+", " ", s)          # 공백 정규화
+        return s if s else "default"
+    
+    def _compile_patterns(self, words_by_cat: Dict[str, List[str]]) -> Dict[str, Pattern[str]]:
+        """
+        카테고리별 단어 리스트를 하나의 정규식으로 컴파일합니다.
+        - 기본은 부분 매칭(단어 경계 미사용). 필요 시 경계 추가 로직 확장 가능.
+        """
+        patterns: Dict[str, Pattern[str]] = {}
+        flags = re.IGNORECASE  # 영문 섞일 수 있어 대소문자 무시
+
+        for cat, words in words_by_cat.items():
+            terms = [re.escape(w) for w in words if w]
+            if not terms:
+                # 매칭 불가능한 더미 패턴
+                patterns[cat] = re.compile(r"(?!x)x")
+                continue
+
+            body = "|".join(terms)
+            regex = rf"({body})"  # group(1)에 실제 매칭 단어를 담도록 캡처
+            patterns[cat] = re.compile(regex, flags)
+
+        return patterns
+    
+    def scan(self, text: str) -> List[Dict[str, object]]:
+        """
+        텍스트에서 카테고리별 매칭 결과를 반환합니다.
+        예:
+            [{"category":"1. Slur / ...", "match":"병신", "start":10, "end":12}, ...]
+        """
+        if not text:
+            return []
+        self._maybe_reload()
+
+        out: List[Dict[str, object]] = []
+        with self._lock:
+            for cat, rx in self._patterns.items():
+                for m in rx.finditer(text):
+                    tok = m.group(1)
+                    s, e = m.span(1)
+                    out.append({"category": cat, "match": tok, "start": s, "end": e})
+        return out
+
+    def is_blocked(self, text: str) -> bool:
+        """매칭 결과가 하나라도 있으면 차단(True)으로 간주합니다."""
+        return bool(self.scan(text))
