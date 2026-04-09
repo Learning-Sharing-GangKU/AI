@@ -46,7 +46,6 @@ from app.processors.filter_preprocessing import TextPreprocessor, PreprocessConf
 from app.filters.v1.blocklistV0 import BlacklistMatcher
 from app.api.v1.deps import get_curse_model_dep, get_xlmr_client_dep
 
-
 # 3) 모델 어댑터(인터페이스) - 실제 구현은 서비스 폴더에 두시는 것을 권장
 #    - curse: 로컬 이진 욕설 모델(2tle/korean-curse-detection 등)
 #    - xlmr : xlm-roberta-large toxicity 계열(외부 호출/로컬 중 택1)

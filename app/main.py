@@ -6,6 +6,7 @@
 # - 워밍업: 간단한 텍스트로 모델을 1회 호출하여 로딩 지연을 앱 시작 시 해결
 
 from fastapi import FastAPI
+
 # from app.api.v1.router import api_v1_router
 from app.api.v2.router import api_v2_router
 from huggingface_hub import snapshot_download

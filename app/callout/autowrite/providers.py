@@ -66,7 +66,7 @@ class Provider:
                 {
                     "role": "system",
                     "content": f"너는 건국대학교 학생들을 위한 모임 소개문 작성 보조 AI야. "
-                               f"입력된 정보를 바탕으로 자연스럽고 따뜻한 소개문을 {max_chars}자 이내로 작성해줘.",
+                            f"입력된 정보를 바탕으로 자연스럽고 따뜻한 소개문을 {max_chars}자 이내로 작성해줘.",
                 },
                 {"role": "user", "content": prompt},
             ],

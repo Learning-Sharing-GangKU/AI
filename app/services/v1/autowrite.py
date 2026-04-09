@@ -1,5 +1,5 @@
-import logging
 # app/services/v1/autowrite.py
+import logging
 from datetime import datetime
 from app.callout.autowrite.providers import Provider
 from app.models.schemas import AutoWriteResponse
