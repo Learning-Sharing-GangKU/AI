@@ -11,6 +11,7 @@
 #   - app/processors/filter_postprocessing.py : FilterDecision, to_filter_check_response
 
 from __future__ import annotations
+import asyncio
 import logging
 from typing import Optional
 
@@ -107,6 +108,60 @@ class FilterService:
             decision.route,
             decision.score,
             decision.allowed
+        )
+
+        return to_filter_check_response(decision)
+
+    async def check_async(self, text: str) -> FilterCheckResponse:
+        """
+        비동기 필터 파이프라인.
+        - 전처리/블랙리스트: 가볍기 때문에 그대로 동기 호출
+        - xlmr: 외부 API 호출 → await predict_async
+        - curse: CPU 연산 → run_in_executor로 이벤트루프 분리
+        """
+        # 1) 전처리 — 가벼운 문자열 연산, executor 불필요
+        normalized = self._preprocessor.preprocess(text)
+
+        # 2) 블랙리스트 — 정규식 매칭, 마찬가지로 가벼움
+        bl_hits = self._matcher.scan(normalized)
+        if bl_hits:
+            decision = FilterDecision(
+                allowed=False,
+                score=1.0,
+                route="blacklist_block",
+                threshold=None,
+                blacklist=bl_hits,
+            )
+            return to_filter_check_response(decision)
+
+        # 3) 정책 라우팅
+        policy = self._router.policy(normalized)
+
+        # 4) 모델 추론
+        loop = asyncio.get_event_loop()
+
+        ml_score = None
+
+        if policy.route == "xlmr" and self._xlmr is not None:
+            ml_score = await self._xlmr.predict_async(normalized)
+
+        if ml_score is None:  # fallback
+            ml_score = await loop.run_in_executor(None, self._curse.predict, normalized)
+
+        # 5) 판정
+        decision = FilterDecision(
+            allowed=ml_score < policy.threshold,
+            score=ml_score,
+            route=policy.route,
+            threshold=policy.threshold,
+            blacklist=[],
+        )
+
+        logger.warning(
+            "filter → route=%s score=%s allowed=%s",
+            decision.route,
+            decision.score,
+            decision.allowed,
         )
 
         return to_filter_check_response(decision)

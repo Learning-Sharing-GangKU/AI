@@ -83,6 +83,36 @@ class XLMRClient:
 
         return toxic_score if toxic_score is not None else 0.0
 
+    # 비동기 predict 추가
+    async def predict_async(self, text: str) -> float:
+        """
+        비동기 버전. filter endpoint의 async 경로에서 사용.
+        실패/서킷오픈 시 안전 폴백: 0.0 반환
+        """
+        if not text:
+            return 0.0
+
+        url = f"{self.base_url}{self.path}"
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        resp = await self.async_http.post_json(
+            url,
+            payload={"inputs": text},
+            headers=headers
+        )
+
+        if resp is None:
+            return None
+
+        data = np.array(resp.json()).flatten().tolist()
+        toxic_entry = self._extract_toxic_entry(data)
+        toxic_score = float(toxic_entry["score"]) if toxic_entry and "score" in toxic_entry else None
+
+        # None 방어 (이전에 논의한 버그 포인트)
+        return toxic_score if toxic_score is not None else 0.0
+
     @staticmethod
     def _extract_toxic_entry(data: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """
