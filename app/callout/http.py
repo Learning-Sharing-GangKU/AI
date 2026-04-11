@@ -24,7 +24,7 @@ class HttpCaller:
     def __init__(self) -> None:
         # timeout: 넘으면 타임아웃으로 간주할거임
         self.timeout = float(settings.XLMR_TIMEOUT)
-        # retries: 2 -> 최대 2번 시도해보고 안되면,
+        # retries: 2 -> 최대 2 + n번 시도해보고 안되면,
         self.retries = max(0, int(settings.XLMR_RETRIES))
         # 서킷브레이커가 열려 있을 시간. -> 5초 지나면 해당 서킷을 half open
         self._cb_cooldown_sec = int(settings.XLMR_CB_COOLDOWN_SEC)
@@ -55,16 +55,46 @@ class HttpCaller:
                 resp = self._client.post(url, json=payload, headers=headers or {})
                 # 재시도 대상 상태코드: 5xx/408/429
                 status_code = resp.status_code
-                if status_code >= 500 or status_code in (408, 429):
-                    last_exc = httpx.HTTPStatusError("retryable", request=resp.request, response=resp)
-                    logger.warning("[HttpCaller] Retryable status %s (attempt=%d/%d) url=%s body=%s", status_code, try_count, self.retries + 1, url, _peek(resp))
+                if status_code >= 500:
+                    logger.warning(
+                        "[HttpCaller] External server error 5xx "
+                        "(attempt=%d/%d) status=%s url=%s body=%s",
+                        try_count, self.retries + 1, status_code, url, _peek(resp)
+                    )
+                    last_exc = httpx.HTTPStatusError("server error", request=resp.request, response=resp)
                     continue
 
-                # 비재시도 4xx는 여기서 바로 반환(호출자에게 이유를 보여주자)
+                if status_code == 429:
+                    logger.warning(
+                        "[HttpCaller] Rate limited by external API "
+                        "(attempt=%d/%d) status=%s url=%s body=%s",
+                        try_count, self.retries + 1, status_code, url, _peek(resp)
+                    )
+                    last_exc = httpx.HTTPStatusError("rate limited", request=resp.request, response=resp)
+                    continue
+
+                if status_code == 408:
+                    logger.warning(
+                        "[HttpCaller] External API request timeout response "
+                        "(attempt=%d/%d) status=%s url=%s body=%s",
+                        try_count, self.retries + 1, status_code, url, _peek(resp)
+                    )
+                    last_exc = httpx.HTTPStatusError("request timeout", request=resp.request, response=resp)
+                    continue
+
                 if 400 <= status_code < 500:
-                    logger.error("[HttpCaller] Non-retryable 4xx %s (attempt=%d) url=%s body=%s", status_code, try_count, url, _peek(resp))
+                    logger.error(
+                        "[HttpCaller] Client-side request issue 4xx "
+                        "(attempt=%d/%d) status=%s url=%s body=%s payload=%s",
+                        try_count, self.retries + 1, status_code, url, _peek(resp), payload
+                    )
                     return resp
 
+                logger.info(
+                    "[HttpCaller] Success "
+                    "(attempt=%d/%d) status=%s url=%s",
+                    try_count, self.retries + 1, status_code, url
+                )
                 return resp
 
             except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError) as e:
@@ -84,6 +114,99 @@ class HttpCaller:
         # 모든 시도 실패 → 서킷 오픈 (일정시간 동안 호출을 차단해버림)
         self._cb_open_until = time.time() + self._cb_cooldown_sec
         logger.error("[HttpCaller] All retries failed. Circuit OPEN for %ds. last_exc=%r", self._cb_cooldown_sec, last_exc)
+        return None
+
+
+class AsyncHttpCaller:
+    """
+    비동기 HTTP 호출자.
+    - HttpCaller와 동일한 타임아웃/재시도/서킷브레이커 정책을 async로 구현.
+    - filter endpoint의 XLMR 외부 호출에 사용.
+    """
+
+    def __init__(self) -> None:
+        self.timeout = float(settings.XLMR_TIMEOUT)
+        self.retries = max(0, int(settings.XLMR_RETRIES))
+        self._cb_cooldown_sec = int(settings.XLMR_CB_COOLDOWN_SEC)
+        self._cb_open_until: float = 0.0
+
+    async def post_json(
+        self,
+        url: str,
+        payload: Dict[str, Any],
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Optional[httpx.Response]:
+        now = time.time()
+        if now < self._cb_open_until:
+            logger.warning("[AsyncHttpCaller] Circuit OPEN → skip %s", url)
+            return None
+
+        last_exc: Optional[Exception] = None
+
+        async with httpx.AsyncClient(timeout=self.timeout):
+            for try_count in range(1, self.retries + 2):
+                try:
+                    resp = self._client.post(url, json=payload, headers=headers or {})
+                    # 재시도 대상 상태코드: 5xx/408/429
+                    status_code = resp.status_code
+                    if status_code >= 500:
+                        logger.warning(
+                            "[HttpCaller] External server error 5xx "
+                            "(attempt=%d/%d) status=%s url=%s body=%s",
+                            try_count, self.retries + 1, status_code, url, _peek(resp)
+                        )
+                        last_exc = httpx.HTTPStatusError("server error", request=resp.request, response=resp)
+                        continue
+
+                    if status_code == 429:
+                        logger.warning(
+                            "[HttpCaller] Rate limited by external API "
+                            "(attempt=%d/%d) status=%s url=%s body=%s",
+                            try_count, self.retries + 1, status_code, url, _peek(resp)
+                        )
+                        last_exc = httpx.HTTPStatusError("rate limited", request=resp.request, response=resp)
+                        continue
+
+                    if status_code == 408:
+                        logger.warning(
+                            "[HttpCaller] External API request timeout response "
+                            "(attempt=%d/%d) status=%s url=%s body=%s",
+                            try_count, self.retries + 1, status_code, url, _peek(resp)
+                        )
+                        last_exc = httpx.HTTPStatusError("request timeout", request=resp.request, response=resp)
+                        continue
+
+                    if 400 <= status_code < 500:
+                        logger.error(
+                            "[HttpCaller] Client-side request issue 4xx "
+                            "(attempt=%d/%d) status=%s url=%s body=%s payload=%s",
+                            try_count, self.retries + 1, status_code, url, _peek(resp), payload
+                        )
+                        return resp
+
+                    logger.info(
+                        "[HttpCaller] Success "
+                        "(attempt=%d/%d) status=%s url=%s",
+                        try_count, self.retries + 1, status_code, url
+                    )
+                    return resp
+
+                except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError) as e:
+                    last_exc = e
+                    logger.warning("[HttpCaller] Network error (attempt=%d/%d) url=%s err=%r", try_count, self.retries + 1, url, e)
+                    continue
+
+                except httpx.HTTPStatusError as e:
+                    last_exc = e
+                    logger.warning("[HttpCaller] HTTPStatusError caught (attempt=%d/%d) url=%s err=%r", try_count, self.retries + 1, url, e)
+
+                except Exception as e:
+                    last_exc = e
+                    logger.exception("[HttpCaller] Unhandled error url=%s", url)
+                    break
+
+        self._cb_open_until = time.time() + self._cb_cooldown_sec
+        logger.error("[AsyncHttpCaller] All retries failed. Circuit OPEN for %ds. last_exc=%r", self._cb_cooldown_sec, last_exc)
         return None
 
 

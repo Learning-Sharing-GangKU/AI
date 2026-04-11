@@ -35,7 +35,7 @@ router = APIRouter(
     "/recommendations",
     response_model=RecommendationResponse,
     summary="사용자 선호 기반 방 추천")
-async def recommend(
+def recommend(
     req: RecommendByClusteringModelRequest,
     recommender_v2: v2_recommender = Depends(get_recommender_v2),
     recommender_v1: fallback_recommender = Depends(get_recommender_v1),
