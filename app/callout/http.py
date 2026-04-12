@@ -129,6 +129,7 @@ class AsyncHttpCaller:
         self.retries = max(0, int(settings.XLMR_RETRIES))
         self._cb_cooldown_sec = int(settings.XLMR_CB_COOLDOWN_SEC)
         self._cb_open_until: float = 0.0
+        self._client = httpx.AsyncClient(timeout=self.timeout)  # 싱글톤으로 관리
 
     async def post_json(
         self,
@@ -143,67 +144,66 @@ class AsyncHttpCaller:
 
         last_exc: Optional[Exception] = None
 
-        async with httpx.AsyncClient(timeout=self.timeout):
-            for try_count in range(1, self.retries + 2):
-                try:
-                    resp = self._client.post(url, json=payload, headers=headers or {})
-                    # 재시도 대상 상태코드: 5xx/408/429
-                    status_code = resp.status_code
-                    if status_code >= 500:
-                        logger.warning(
-                            "[HttpCaller] External server error 5xx "
-                            "(attempt=%d/%d) status=%s url=%s body=%s",
-                            try_count, self.retries + 1, status_code, url, _peek(resp)
-                        )
-                        last_exc = httpx.HTTPStatusError("server error", request=resp.request, response=resp)
-                        continue
+        for try_count in range(1, self.retries + 2):
+            try:
+                resp = await self._client.post(url, json=payload, headers=headers or {})  # self._client → await client
+                # 재시도 대상 상태코드: 5xx/408/429
+                status_code = resp.status_code
+                if status_code >= 500:
+                    logger.warning(
+                        "[HttpCaller] External server error 5xx "
+                        "(attempt=%d/%d) status=%s url=%s body=%s",
+                        try_count, self.retries + 1, status_code, url, _peek(resp)
+                    )
+                    last_exc = httpx.HTTPStatusError("server error", request=resp.request, response=resp)
+                    continue
 
-                    if status_code == 429:
-                        logger.warning(
-                            "[HttpCaller] Rate limited by external API "
-                            "(attempt=%d/%d) status=%s url=%s body=%s",
-                            try_count, self.retries + 1, status_code, url, _peek(resp)
-                        )
-                        last_exc = httpx.HTTPStatusError("rate limited", request=resp.request, response=resp)
-                        continue
+                if status_code == 429:
+                    logger.warning(
+                        "[HttpCaller] Rate limited by external API "
+                        "(attempt=%d/%d) status=%s url=%s body=%s",
+                        try_count, self.retries + 1, status_code, url, _peek(resp)
+                    )
+                    last_exc = httpx.HTTPStatusError("rate limited", request=resp.request, response=resp)
+                    continue
 
-                    if status_code == 408:
-                        logger.warning(
-                            "[HttpCaller] External API request timeout response "
-                            "(attempt=%d/%d) status=%s url=%s body=%s",
-                            try_count, self.retries + 1, status_code, url, _peek(resp)
-                        )
-                        last_exc = httpx.HTTPStatusError("request timeout", request=resp.request, response=resp)
-                        continue
+                if status_code == 408:
+                    logger.warning(
+                        "[HttpCaller] External API request timeout response "
+                        "(attempt=%d/%d) status=%s url=%s body=%s",
+                        try_count, self.retries + 1, status_code, url, _peek(resp)
+                    )
+                    last_exc = httpx.HTTPStatusError("request timeout", request=resp.request, response=resp)
+                    continue
 
-                    if 400 <= status_code < 500:
-                        logger.error(
-                            "[HttpCaller] Client-side request issue 4xx "
-                            "(attempt=%d/%d) status=%s url=%s body=%s payload=%s",
-                            try_count, self.retries + 1, status_code, url, _peek(resp), payload
-                        )
-                        return resp
-
-                    logger.info(
-                        "[HttpCaller] Success "
-                        "(attempt=%d/%d) status=%s url=%s",
-                        try_count, self.retries + 1, status_code, url
+                if 400 <= status_code < 500:
+                    logger.error(
+                        "[HttpCaller] Client-side request issue 4xx "
+                        "(attempt=%d/%d) status=%s url=%s body=%s payload=%s",
+                        try_count, self.retries + 1, status_code, url, _peek(resp), payload
                     )
                     return resp
 
-                except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError) as e:
-                    last_exc = e
-                    logger.warning("[HttpCaller] Network error (attempt=%d/%d) url=%s err=%r", try_count, self.retries + 1, url, e)
-                    continue
+                logger.info(
+                    "[HttpCaller] Success "
+                    "(attempt=%d/%d) status=%s url=%s",
+                    try_count, self.retries + 1, status_code, url
+                )
+                return resp
 
-                except httpx.HTTPStatusError as e:
-                    last_exc = e
-                    logger.warning("[HttpCaller] HTTPStatusError caught (attempt=%d/%d) url=%s err=%r", try_count, self.retries + 1, url, e)
+            except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError) as e:
+                last_exc = e
+                logger.warning("[HttpCaller] Network error (attempt=%d/%d) url=%s err=%r", try_count, self.retries + 1, url, e)
+                continue
 
-                except Exception as e:
-                    last_exc = e
-                    logger.exception("[HttpCaller] Unhandled error url=%s", url)
-                    break
+            except httpx.HTTPStatusError as e:
+                last_exc = e
+                logger.warning("[HttpCaller] HTTPStatusError caught (attempt=%d/%d) url=%s err=%r", try_count, self.retries + 1, url, e)
+
+            except Exception as e:
+                last_exc = e
+                logger.exception("[HttpCaller] Unhandled error url=%s", url)
+                break
 
         self._cb_open_until = time.time() + self._cb_cooldown_sec
         logger.error("[AsyncHttpCaller] All retries failed. Circuit OPEN for %ds. last_exc=%r", self._cb_cooldown_sec, last_exc)
