@@ -20,13 +20,14 @@
 # app/services/recommender.py
 
 from __future__ import annotations
+from datetime import datetime
 from pathlib import Path
 import logging
 import joblib
 import json
 import numpy as np
 
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 
 from app.core.config import settings
 
@@ -98,6 +99,7 @@ class Recommender:
             self,
             req: RecommendByClusteringModelRequest,
             limit: int = settings.RECOMMANDS_LIMIT,
+            now: Optional[datetime] = None
     ) -> Optional[List[int]]:
 
         user = clustering_request_usermeta(req)
@@ -122,32 +124,46 @@ class Recommender:
             )
             return None
 
-        cluster_id = self.predict_cluster(user)
+        cluster_id, X_scaled = self.predict_cluster(user)
 
-        # 2. cluster별 인기방 목록 조회
-        key = str(cluster_id)
-        room_ids_for_cluster = self.cluster_popularity.get(key, [])
+        # 인접 클러스터 거리 기반 정렬 (가까운 순)
+        distances = self.kmeans.transform(X_scaled)[0]  # (n_clusters,)
+        sorted_cluster_ids = np.argsort(distances)       # 거리 가까운 순 index
 
-        if not room_ids_for_cluster:
-            # TODO: 여기서 v1 콜드스타트/글로벌 인기방 fallback 넣을 수 있음
-            return []
+        # 가까운 클러스터부터 방 끌어오기 (중복 제거)
+        result: List[int] = []
+        seen = set()
 
-        # 3. 상위 limit 개만 잘라서 반환
-        return room_ids_for_cluster[:limit]
+        for cid in sorted_cluster_ids:
+            key = str(cid)
+            rooms = self.cluster_popularity.get(key, [])
+            for room_id in rooms:
+                if room_id not in seen:
+                    seen.add(room_id)
+                    result.append(room_id)
+                if len(result) >= limit:
+                    return result
+
+        logger.warning(
+            "V2 rank → cluster_id=%s 기준 인접 클러스터 포함 총 %s개 반환",
+            cluster_id, len(result)
+        )
+
+        return result
 
     # -------------------------------
     # public API : cluster 예측, RecommendByClusteringModelRequest cluster_id 없을 경우
     # -------------------------------
-    def predict_cluster(self, req: RoomRecommandUserMetaV2) -> int:
+    def predict_cluster(self, user: RoomRecommandUserMetaV2) -> Tuple[int, np.ndarray]:
         # 1. numeric feature
-        age = req.user_age or 0
-        enroll = req.user_enroll or 0
-        join = req.user_join_count or 0
+        age = user.user_age or 0
+        enroll = user.user_enroll or 0
+        join = user.user_join_count or 0
         numeric = np.array([[age, enroll, join]], dtype=np.float32)
 
         # 2. multi-hot
         multi = np.zeros((1, len(self.category_vocab)), dtype=np.float32)
-        for cat in (req.preferred_categories or []):
+        for cat in (user.preferred_categories or []):
             name = Category._cat_name(cat)   # Enum -> "음악" 같은 문자열
             idx = self.cat_index.get(name)
             if idx is not None:
@@ -165,4 +181,4 @@ class Recommender:
         # 6. cluster 예측
         cluster_id = int(self.kmeans.predict(X_scaled)[0])
 
-        return cluster_id
+        return cluster_id, X_scaled
