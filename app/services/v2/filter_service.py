@@ -139,9 +139,9 @@ class FilterService:
 
         # 4) 모델 추론
         loop = asyncio.get_event_loop()
+        actual_route = policy.route  # 실제로 탄 경로 추적
 
         ml_score = None
-        actual_route = policy.route  # 실제로 탄 경로 추적
 
         if policy.route == "xlmr" and self._xlmr is not None:
             ml_score = await self._xlmr.predict_async(normalized)

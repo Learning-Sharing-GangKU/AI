@@ -27,7 +27,7 @@ router = APIRouter(
 
 
 @router.post("/filter", response_model=FilterCheckResponse)
-async def filter_check(
+def filter_check(
     req: FilterCheckRequest,
     curse: LocalCurseModel = Depends(get_curse_model_dep),
     xlmr: Optional[XLMRClient] = Depends(get_xlmr_client_dep)
@@ -40,7 +40,8 @@ async def filter_check(
     응답: FilterCheckResponse(allowed, score, matches)
     """
     try:
-        return await FilterService(curse=curse, xlmr=xlmr).check_async(req.text)
+        return FilterService(curse=curse, xlmr=xlmr).check(req.text)
+        # return await FilterService(curse=curse, xlmr=xlmr).check_async(req.text)
     except Exception as e:
         # 내부 오류는 500으로 래핑
         raise AppException(ErrorCode.FILTER_FAILED, str(e))
