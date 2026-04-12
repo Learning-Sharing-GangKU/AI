@@ -9,7 +9,7 @@ import logging
 
 import numpy as np
 from typing import Dict, Any, Optional, List
-from ..http import HttpCaller
+from ..http import AsyncHttpCaller, HttpCaller
 
 from app.core.config import settings
 
@@ -35,11 +35,12 @@ class XLMRClient:
         api_key: Optional[str] = None,
         path: str = "/classify",
         http: Optional[HttpCaller] = None
-    ) -> None:
+    ) -> Optional[float]:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.path = path if path.startswith("/") else f"/{path}"
         self.http = http or HttpCaller()
+        self.async_http = AsyncHttpCaller()  # 이거 추가
 
     @classmethod
     def from_env(cls) -> "XLMRClient":

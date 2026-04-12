@@ -143,10 +143,10 @@ class AsyncHttpCaller:
 
         last_exc: Optional[Exception] = None
 
-        async with httpx.AsyncClient(timeout=self.timeout):
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
             for try_count in range(1, self.retries + 2):
                 try:
-                    resp = self._client.post(url, json=payload, headers=headers or {})
+                    resp = await client.post(url, json=payload, headers=headers or {})  # self._client → await client
                     # 재시도 대상 상태코드: 5xx/408/429
                     status_code = resp.status_code
                     if status_code >= 500:
