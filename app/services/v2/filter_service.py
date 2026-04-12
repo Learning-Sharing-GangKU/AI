@@ -141,18 +141,20 @@ class FilterService:
         loop = asyncio.get_event_loop()
 
         ml_score = None
+        actual_route = policy.route  # 실제로 탄 경로 추적
 
         if policy.route == "xlmr" and self._xlmr is not None:
             ml_score = await self._xlmr.predict_async(normalized)
 
         if ml_score is None:  # fallback
             ml_score = await loop.run_in_executor(None, self._curse.predict, normalized)
+            actual_route = "curse"
 
         # 5) 판정
         decision = FilterDecision(
             allowed=ml_score < policy.threshold,
             score=ml_score,
-            route=policy.route,
+            route=actual_route,
             threshold=policy.threshold,
             blacklist=[],
         )

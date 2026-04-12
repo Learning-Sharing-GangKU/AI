@@ -35,7 +35,7 @@ class XLMRClient:
         api_key: Optional[str] = None,
         path: str = "/classify",
         http: Optional[HttpCaller] = None
-    ) -> Optional[float]:
+    ) -> None:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.path = path if path.startswith("/") else f"/{path}"
